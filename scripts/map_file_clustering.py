@@ -6,6 +6,13 @@ import tqdm
 import json
 import sys
 
+def ids_to_names(cluster):
+    new_cluster = []
+    for id in cluster:
+        new_cluster.append(names_map[id])
+    
+    return new_cluster
+    
 
 def get_all_connected_groups(graph):
     already_seen = set()
@@ -48,10 +55,10 @@ else:
 
 
 print ("Reading names...")
-names_map = []
+names_map = {}
 with open(names_map_file) as namesMap:
     for name in namesMap:
-        names_map.append(int(re.findall(r'\t(\d+)', name)[0]))
+        names_map[int(re.findall(r'\t(\d+)', name)[0])] = re.findall(r'(.*)\t', name)[0]
 
 print ("Reading Colors & Groups...")
 groups = {}
@@ -68,13 +75,13 @@ print ("Done Counting Colors...")
 print ("Collecting Garbage")
 gc.collect()
 
-
 graph = {}
 
 print ("Processing groups...")
 for color, tr_ids in tqdm.tqdm(groups.items()):
     color_count = colors[color]
     if len(tr_ids) == 1:
+        #graph[tr_ids[0]] = tr_ids[0]
         continue
 
     for combination in itertools.combinations(tr_ids,2):
@@ -91,12 +98,13 @@ print ("Clustering...")
 components = get_all_connected_groups(graph)
 
 print ("Writing results...")
-res = open(output_file + ".tsv", "w")
-number_of_clusters = 0
+res = open("clusters_" + output_file + ".tsv", "w")
+res.write("cluster_id\ttranscripts_ids\n")
+cluster_id = 0
 for i in tqdm.tqdm(range(len(components))):
     component = components[i]
     if len(component) > 1:
-        res.write('\t'.join(str(x) for x in component) + "\n")
-        number_of_clusters += 1
+        res.write(str(cluster_id) + '\t' + ','.join(ids_to_names(component)) + "\n")
+        cluster_id += 1
 
 res.close()
