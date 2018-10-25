@@ -12,3 +12,4 @@ script: https://github.com/mr-eyes/kCluster/blob/master/graph.ipynb
 ## Trial 3
 Using hard coded function to get all connected components in a very short time. 
 Clustering of the whole transcriptome took about 3 minutes to complete, from the kProcessor output to the clusters file generation.
+script: https://github.com/mr-eyes/kCluster/blob/master/scripts/map_file_clustering.py
