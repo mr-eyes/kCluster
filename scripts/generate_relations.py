@@ -6,10 +6,10 @@ input:
     - Names MAP file
 
 output:
-    - JSON & TSV files holds the information of shared kmers count between each two transcripts.
+    - TSV files holds the information of shared kmers count between each two transcripts.
 """
 
-
+from __future__ import division
 from collections import Counter
 import itertools
 import re
@@ -17,32 +17,57 @@ import gc
 import tqdm
 import json
 import sys
+import os
+from Bio import SeqIO
 
+
+def ids_to_names(cluster):
+    new_cluster = []
+
+    for id in cluster:
+        new_cluster.append(id_to_name[id])
+    
+    return new_cluster
+    
 names_map_file = ""
 map_index_file = ""
+fasta_file = ""
 output_file = ""
+kmer_size = 25
 
-if len(sys.argv) < 3:
-    exit("Please pass <map_index_file> <names_map_file>")
+if len(sys.argv) < 5:
+    exit("Please pass <map_index_file> <names_map_file> <fasta_file> <kmer_size>")
 
 else:
     map_index_file = sys.argv[1]
     names_map_file = sys.argv[2]
+    fasta_file = sys.argv[3]
+    kmer_size = int(sys.argv[4])
 
-if len(sys.argv) == 4:
-        output_file = sys.argv[3]
+if len(sys.argv) == 6:
+        output_file = sys.argv[5]
 
 else:
-    output_file = map_index_file.split(".")[0]
+    output_file = os.path.basename(map_index_file).split(".")[0]
 
 
-names_map = []
+print ("Reading names...")
+id_to_name = {}
+name_to_id = {}
 with open(names_map_file) as namesMap:
     for name in namesMap:
-        names_map.append(int(re.findall(r'\t(\d+)', name)[0]))
+        _id = int(re.findall(r'\t(\d+)', name)[0])
+        _name = re.findall(r'(.*)\t', name)[0]
+        id_to_name[_id] = _name
+        name_to_id[_name] = _id
 
-print ("Done reading names...")
+print ("Calculating Number of kmers...")
+seq_to_kmersNo = {}
+for seq_record in SeqIO.parse(fasta_file, "fasta"):
+    seq_to_kmersNo[name_to_id[seq_record.id]] = len(seq_record) - kmer_size + 1
 
+
+print ("Reading Colors & Groups...")
 groups = {}
 colors = []
 with open(map_index_file) as MAP:
@@ -54,45 +79,65 @@ with open(map_index_file) as MAP:
 
 colors = Counter(colors)
 print ("Done Counting Colors...")
-print ("Collecting Garbage")
+#print ("Collecting Garbage")
 gc.collect()
 
 edges = {}
+nodes = set()
 
 print ("Processing groups...")
+
+
 for color, tr_ids in tqdm.tqdm(groups.items()):
     color_count = colors[color]
+
     if len(tr_ids) == 1:
+        nodes.add(tr_ids[0])
         continue
+    
+    for tr in tr_ids:
+        nodes.add(tr)
 
     for combination in itertools.combinations(tr_ids,2):
-        if combination[0] in edges:
-            if combination[1] in edges[combination[0]]:
-                edges[combination[0]][combination[1]] += color_count
+        _seq1 = combination[0]
+        _seq2 = combination[1]
+
+        if _seq1 in edges:
+            if _seq2 in edges[_seq1]:
+                edges[_seq1][_seq2] += color_count
             else:
-                edges[combination[0]][combination[1]] = color_count
-        
+                edges[_seq1][_seq2] = color_count
+
         else:
-            edges[combination[0]] = {combination[1]: color_count}
+            edges[_seq1] = {_seq2: color_count}
+        
+
+        if _seq2 in edges:
+            if _seq1 in edges[_seq2]:
+                edges[_seq2][_seq1] += color_count
+            else:
+                edges[_seq2][_seq1] = color_count
+
+        else:
+            edges[_seq2] = {_seq1: color_count}
+
 
 del colors
 del groups
 gc.collect()
 
-print ("Writing JSON file ...")
-json_file = open(output_file + ".json", "w")
-json_file.write(json.dumps(edges, sort_keys=True,
-                           indent=4, separators=(',', ': ')))
-json_file.close()
-
 
 print ("Writing TSV file ...")
 
 tsv = open(output_file + ".tsv", "w")
+tsv.write("seq_1\tseq_2\tshared_kmers\tnorm\n")
 
 for _1st, info in tqdm.tqdm(edges.items()):
-    for _2nd, _weight in info.items():
-        l = "%d\t%d\t%d\n" % (_1st, _2nd, _weight)
+    for _2nd, _no_shared_kmers in info.items():
+        _smallest_kmers_no = min(seq_to_kmersNo[_1st], seq_to_kmersNo[_2nd])
+        _similarity = _no_shared_kmers / _smallest_kmers_no  # Normalized Weight
+
+        l = "%d\t%d\t%d\t%f\n" % (_1st, _2nd, _no_shared_kmers, _similarity)
         tsv.write(l)
 
 tsv.close()
