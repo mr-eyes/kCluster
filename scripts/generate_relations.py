@@ -111,15 +111,15 @@ for color, tr_ids in tqdm.tqdm(groups.items()):
         else:
             edges[_seq1] = {_seq2: color_count}
         
+        # Write Reverse Edge
+        # if _seq2 in edges:
+        #     if _seq1 in edges[_seq2]:
+        #         edges[_seq2][_seq1] += color_count
+        #     else:
+        #         edges[_seq2][_seq1] = color_count
 
-        if _seq2 in edges:
-            if _seq1 in edges[_seq2]:
-                edges[_seq2][_seq1] += color_count
-            else:
-                edges[_seq2][_seq1] = color_count
-
-        else:
-            edges[_seq2] = {_seq1: color_count}
+        # else:
+        #     edges[_seq2] = {_seq1: color_count}
 
 
 del colors
@@ -130,14 +130,15 @@ gc.collect()
 print ("Writing TSV file ...")
 
 tsv = open(output_file + ".tsv", "w")
-tsv.write("seq_1\tseq_2\tshared_kmers\tnorm\n")
+tsv.write("seq_1\tseq_2\tshared_kmers\tnorm%\n")
 
 for _1st, info in tqdm.tqdm(edges.items()):
     for _2nd, _no_shared_kmers in info.items():
         _smallest_kmers_no = min(seq_to_kmersNo[_1st], seq_to_kmersNo[_2nd])
         _similarity = _no_shared_kmers / _smallest_kmers_no  # Normalized Weight
+        _similarity *= 100
 
-        l = "%d\t%d\t%d\t%f\n" % (_1st, _2nd, _no_shared_kmers, _similarity)
+        l = "%d\t%d\t%d\t%.2f\n" % (_1st, _2nd, _no_shared_kmers, _similarity)
         tsv.write(l)
 
 tsv.close()
