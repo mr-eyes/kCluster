@@ -38,24 +38,31 @@ def get_connected_group(node, already_seen):
         return result, already_seen
 
 
-cut_off_threshold = 1
+cut_off_threshold = 0.0
+relations_file = ""
 names_map_file = ""
-map_index_file = ""
 output_file = ""
 
 if len(sys.argv) < 3:
-    exit("Please pass <map_index_file> <names_map_file> <cuttof_threshold>")
+    exit("Please pass <relations_tsv_file> <names_map_file> <op: cuttof_threshold %> <op: output_file_name> <op: output_file_name>")
 
 else:
-    map_index_file = sys.argv[1]
+    relations_file = sys.argv[1]
     names_map_file = sys.argv[2]
-    cut_off_threshold = int(sys.argv[3])
+    
+if len(sys.argv) >= 4:
+    cut_off_threshold = float(sys.argv[3])
+    
+else:
+    cut_off_threshold = 0.00000000001
 
 if len(sys.argv) == 5:
         output_file = sys.argv[4]
-
+        
 else:
-    output_file = os.path.basename(map_index_file).split(".")[0]
+    output_file = os.path.basename(names_map_file).split(".")[0]
+
+
 
 
 print ("Reading names...")
@@ -64,44 +71,32 @@ with open(names_map_file) as namesMap:
     for name in namesMap:
         names_map[int(re.findall(r'\t(\d+)', name)[0])] = re.findall(r'(.*)\t', name)[0]
 
-print ("Reading Colors & Groups...")
-groups = {}
-colors = []
-with open(map_index_file) as MAP:
-    for line in MAP:
-        if ":" in line:
-            colors.append(int(re.findall(r':(\d+)',line)[0]))
-        elif "-" in line:
-            groups[int(re.findall(r'(\d+)-', line)[0])] = [int(i) for i in re.findall(r"(\d+),", line)]
-
-colors = Counter(colors)
-print ("Done Counting Colors...")
-#print ("Collecting Garbage")
-gc.collect()
 
 graph = {}
+print ("Building the graph...")
 
-print ("Processing groups...")
-for color, tr_ids in tqdm.tqdm(groups.items()):
-    color_count = colors[color]
-    #print color_count
 
-    if len(tr_ids) == 1:
-        continue
+with open(relations_file) as REL:
+    next(REL)
+    for line in REL:
+        info = re.findall(r'(\d+(?:\.\d+)?)' , line)
+        _seq1 = int(info[0])
+        _seq2 = int(info[1])
+        _norm = float(info[3])
 
-    if color_count < cut_off_threshold:
-        continue
-
-    for combination in itertools.combinations(tr_ids,2):
-        if combination[0] in graph:
-            graph[combination[0]].add(combination[1])
-        else:
-            graph[combination[0]] = {combination[1]}
+        if _norm < cut_off_threshold:
+            continue
         
-        if combination[1] in graph:
-            graph[combination[1]].add(combination[0])
+        if _seq1 in graph:
+            graph[_seq1].add(_seq2)
         else:
-            graph[combination[1]] = {combination[0]}
+            graph[_seq1] = {_seq2}
+        
+        if _seq2 in graph:
+            graph[_seq2].add(_seq1)
+        else:
+            graph[_seq2] = {_seq1}
+
             
 for i in range(1, len(names_map), 1):
     if i not in graph:
@@ -116,7 +111,6 @@ res.write("cluster_id\ttranscripts_ids\n")
 cluster_id = 0
 for i in range(len(components)):
     component = components[i]
-    #if len(component) > 0:
     res.write(str(cluster_id) + '\t' + ','.join(ids_to_names(component)) + "\n")
     cluster_id += 1
 
