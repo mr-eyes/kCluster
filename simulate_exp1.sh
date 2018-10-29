@@ -47,7 +47,6 @@ rm loci_pc_gencode.v28.transcripts.fa
 for  ksize  in 21 25 31;
 do ./../kprocessor/Kprocessor index -i min_loci_protein_coding_gencode.v28.transcripts.fa -o ${ksize}_pc -k ${ksize} --names min_loci_protein_coding_gencode.v28.transcripts.fa.names --method MAP;
 done
-rm -rf kprocessor/
 
 #11 Generate relations
 for  ksize  in 21 25 31;
