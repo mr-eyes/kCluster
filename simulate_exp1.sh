@@ -39,38 +39,31 @@ rm gencode.v28.transcripts.fa
 rm protein_coding_gencode.v28.transcripts.fa
 rm *.clstr *tar.gz
 
-
-#9 Clone and build kProcessor
-git clone https://github.com/dib-lab/Kprocessor --branch indexFusionGenes --single-branch kprocessor
-cd kProcessor
-make
-cd ..
-
-#10 Prepare data for indexing
+#9 Prepare data for indexing
 python ../scripts/kProcessor_prepare.py loci_protein_coding_gencode.v28.transcripts.fa
 rm loci_pc_gencode.v28.transcripts.fa
 
-#11 kProcessor indexing of protein_coding
+#10 kProcessor indexing of protein_coding
 for  ksize  in 21 25 31;
-do ./kprocessor/Kprocessor index -i min_loci_protein_coding_gencode.v28.transcripts.fa -o ${ksize}_pc -k ${ksize} --names min_loci_protein_coding_gencode.v28.transcripts.fa.names --method MAP;
+do ./../kprocessor/Kprocessor index -i min_loci_protein_coding_gencode.v28.transcripts.fa -o ${ksize}_pc -k ${ksize} --names min_loci_protein_coding_gencode.v28.transcripts.fa.names --method MAP;
 done
 rm -rf kprocessor/
 
-#12 Generate relations
+#11 Generate relations
 for  ksize  in 21 25 31;
 do python generate_relations.py ${ksize}_pc.map ${ksize}_pc.namesMap min_loci_protein_coding_gencode.v28.transcripts.fa ${ksize}_pc
 done
 
-#13 organize
+#12 organize
 mv *namesMap names_maps/
 mv *tsv relations/
 rm *map *fa *names
 
-#14 Automate kClustering (Parallel Processing [All Threads])
+#13 Automate kClustering (Parallel Processing [All Threads])
 bash ../scripts/parallelize_kClustering.sh
 
-#15 Automate CDHIT Benchmarking (Parallel Processing [All Threads])
+#14 Automate CDHIT Benchmarking (Parallel Processing [All Threads])
 bash ../scripts/parallelize_comparison.sh
 
-#16 Visualization
+#15 Visualization
 bash ../scripts/visualize.sh
