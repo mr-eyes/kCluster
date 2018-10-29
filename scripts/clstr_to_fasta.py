@@ -8,13 +8,15 @@ import sys
 
 fasta_file = ""
 clstr_file = ""
+threshold = ""
 
-if len(sys.argv) < 3:
-    exit("run: python <fasta_file> <clstr_file>")
+if len(sys.argv) < 4:
+    exit("run: python <fasta_file> <clstr_file> <threshold%>")
 
 else:
     fasta_file = sys.argv[1]
     clstr_file = sys.argv[2]
+    threshold = sys.argv[3]
 
 
 clstr_file = open(clstr_file, "r")
@@ -50,7 +52,7 @@ for i in range(1, len(all_clusters), 1):
             clusters_transcripts_ids[cluster_id] = [transcript_id]
 
 
-new_fasta = open("clstr_" + fasta_file, 'w')
+new_fasta = open("clstr" + threshold + "_" + fasta_file, 'w')
 
 with open (fasta_file, 'r') as fasta:
     for line in fasta:
