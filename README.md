@@ -20,3 +20,13 @@ cd ..
 ```bash
 bash simulate_exp1.sh
 ```
+
+### After it's done (pwd=kCluster/exp1/)
+
+#### Automate CDHIT Benchmarking (Parallel Processing [All Threads])
+
+bash ../scripts/parallelize_comparison.sh
+
+#### Visualize results
+
+bash ../scripts/visualize.sh

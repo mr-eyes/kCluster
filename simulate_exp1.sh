@@ -60,9 +60,3 @@ rm *map *fa *names
 
 #13 Automate kClustering (Parallel Processing [All Threads])
 bash ../scripts/parallelize_kClustering.sh
-
-#14 Automate CDHIT Benchmarking (Parallel Processing [All Threads])
-bash ../scripts/parallelize_comparison.sh
-
-#15 Visualization
-bash ../scripts/visualize.sh
