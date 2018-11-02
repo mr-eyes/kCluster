@@ -1,6 +1,6 @@
 # kCluster
 
-![kCluster](kCluster.png | width=75)
+<img src="kCluster.png" alt="kCluster" width="65%" height="65%">
 
 ## Clone kCluster
 
