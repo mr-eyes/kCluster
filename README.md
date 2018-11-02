@@ -1,6 +1,6 @@
 # kCluster
 
-![kCluster](kCluster.png)
+![kCluster](kCluster.png | width=75)
 
 ## Clone kCluster
 
@@ -27,8 +27,12 @@ bash reproduce_exp1.sh
 
 #### Automate CDHIT Benchmarking (Parallel Processing [All Threads])
 
+```bash
 bash ../scripts/parallelize_comparison.sh
+```
 
 #### Visualize results
 
+```bash
 bash ../scripts/visualize.sh
+```
