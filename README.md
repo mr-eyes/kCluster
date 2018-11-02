@@ -1,5 +1,7 @@
 # kCluster
 
+![kCluster](kCluster.png)
+
 ## Clone kCluster
 
 ```sh
@@ -15,10 +17,10 @@ make
 cd ..
 ```
 
-## Simulate expirement 1
+## Reproduce expirement 1 (kCluster Vs. CDHIT Benchmarking)
 
 ```bash
-bash simulate_exp1.sh
+bash reproduce_exp1.sh
 ```
 
 ### After it's done (pwd=kCluster/exp1/)
