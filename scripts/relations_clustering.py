@@ -33,7 +33,7 @@ def get_connected_group(node, already_seen):
         while nodes:
             node = nodes.pop()
             already_seen.add(node)
-            nodes = nodes or graph[node] - already_seen
+            nodes.update(graph[node] - already_seen)
             result.append(node)
         return result, already_seen
 
