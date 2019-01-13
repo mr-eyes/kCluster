@@ -86,7 +86,7 @@ with open("uniq_bio_assess.tsv", 'r') as tsv:
             kCl_to_CDH[kCl_type][kCl_ID] = [CDH_ID]
 
         # CDHIT To kCl
-        if CDH_ID in CDH_to_kCl[kCl_type]:
+        if CDH_ID in CDH_to_kCl[CDH_type]:
             CDH_to_kCl[CDH_type][CDH_ID].append(kCl_ID)
         else:
             CDH_to_kCl[CDH_type][CDH_ID] = [kCl_ID]
@@ -98,8 +98,8 @@ with open("uniq_bio_assess.tsv", 'r') as tsv:
 
 empty_dic1 = {"CC": 0, "IC": 0, "CM": 0, "IM": 0}
 kCl_to_CDH_clstrs = {"CC": dict(empty_dic1), "IC": dict(empty_dic1), "CM": dict(empty_dic1), "IM": dict(empty_dic1)}
-uq_KCL = {"CC": 0, "IC": 0, "CM": 0, "IM": 0}
-CDH = {"CC": 0, "IC": 0, "CM": 0, "IM": 0}
+KCL = {"CC": 0, "IC": 0, "CM": 0, "IM": 0}
+uq_CDH = {"CC": 0, "IC": 0, "CM": 0, "IM": 0}
 
 for TYPE in ["CC","IC","IM","CM"]:
     values_len = 0
@@ -112,7 +112,6 @@ for TYPE in ["CC","IC","IM","CM"]:
         kCL_total_seqs += kCl_seqs[key]
         
         for _CDH_cluster in val:
-            CDH[TYPE] += 1
             all_vals.add(_CDH_cluster)
 
             
@@ -120,14 +119,15 @@ for TYPE in ["CC","IC","IM","CM"]:
         _cdh_type = CDH_to_type[_CDH_cluster]
         kCl_to_CDH_clstrs[TYPE][_cdh_type] += 1
         values_len += 1
-        CDH_total_seqs += CDH_seqs[_CDH_cluster]
     
-    uq_KCL[TYPE] = keys_len
+        uq_CDH[TYPE] += 1
+    
+    KCL[TYPE] = keys_len
 
 
 CDH_to_kCl_clstrs = {"CC": dict(empty_dic1), "IC": dict(empty_dic1), "CM": dict(empty_dic1), "IM": dict(empty_dic1)}
-uq_CDH = {"CC": 0, "IC": 0, "CM": 0, "IM": 0}
-KCL = {"CC": 0, "IC": 0, "CM": 0, "IM": 0}
+CDH = {"CC": 0, "IC": 0, "CM": 0, "IM": 0}
+uq_KCL = {"CC": 0, "IC": 0, "CM": 0, "IM": 0}
 
 for TYPE in ["CC","IC","IM","CM"]:
     values_len = 0
@@ -139,50 +139,48 @@ for TYPE in ["CC","IC","IM","CM"]:
     
     for key, val in CDH_to_kCl[TYPE].iteritems():
         all_keys.add(key)
+        keys_len += 1
         
         for _kCl_cluster in val:
             all_vals.add(_kCl_cluster)
     
     for _kCl_cluster in all_vals:
         values_len += 1
-        KCL[TYPE] += 1
         _kCl_type = kCl_to_type[_kCl_cluster]
         CDH_to_kCl_clstrs[TYPE][_kCl_type] += 1
         kCL_total_seqs += kCl_seqs[_kCl_cluster]
+        uq_KCL[TYPE] += 1
     
-    for key in all_keys:
-        keys_len += 1
-        CDH_total_seqs += CDH_seqs[key]
     
-    uq_CDH[TYPE] = keys_len
+    CDH[TYPE] = keys_len
+    
 
 
 #print CDH
 # print uq_CDH
 # print sum(uq_CDH.values())
 
+# print "Total: ", KCL
+# print sum(KCL.values())
+# print "Uniq: ", uq_KCL
+# print sum(uq_KCL.values())
 
-print "Total: ", KCL
-print sum(KCL.values())
-print "Uniq: ", uq_KCL
-print sum(uq_KCL.values())
+# print "-----"
 
-print "-----"
+# print "Total: ", CDH
+# print sum(CDH.values())
+# print "Uniq: ", uq_CDH
+# print sum(uq_CDH.values())
 
-print "Total: ", CDH
-print sum(CDH.values())
-print "Uniq: ", uq_CDH
-print sum(uq_CDH.values())
-
-print "-----"
+# print "-----"
 
 result = PT()
 head = []
 
 for TYPE in ["CC", "IC", "IM", "CM"]:
-    head.append(TYPE+ " " + str(uq_CDH[TYPE]))
+    head.append(TYPE+ " " + str(CDH[TYPE]))
 
-result.field_names = ["kCl/CDH"] + head + ["Total"]
+result.field_names = ["kCl/CDH"] + head + ["Total","uq_Total"]
 
 col_total = {"CC": 0, "IC": 0, "CM": 0, "IM": 0, "Total": 0}
 
@@ -191,7 +189,7 @@ for k, v in pairwise_count.iteritems():
     total = sum(v.values())
     str_v = map(str, v.values())
     col_total["Total"] += total
-    result.add_row([str(uq_KCL[k]) + " " + k] + str_v + [str(total)])
+    result.add_row([str(KCL[k]) + " " + k] + str_v + [str(total)] + [str(uq_CDH[k])])
 
 
 #Total Row
@@ -203,12 +201,17 @@ str_col_total = []
 for TYPE in ["CC", "IC", "IM", "CM", "Total"]:
     str_col_total.append(str(col_total[TYPE]))
 
+str_col_total.append(str(sum(uq_CDH.values()))) # Add cdhit uq total
 
-result.add_row(["----", "----", "----", "----", "----", "----"])
+
+result.add_row(["----", "----", "----", "----", "----", "----", "----"])
 result.add_row(["Total"] + str_col_total)
 
+# kCl uq_total
+uq_total_str = []
+for TYPE in ["CC", "IC", "IM", "CM"]:
+    uq_total_str.append(str(uq_KCL[TYPE]))
+
+result.add_row(["uq_Total"] + uq_total_str + ["----", "----"])
+
 print result
-
-
-#print result
-
