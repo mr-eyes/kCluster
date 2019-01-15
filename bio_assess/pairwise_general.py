@@ -3,9 +3,19 @@ import re
 from pprint import pprint, pformat
 import sys
 
+if len(sys.argv) < 5:
+    exit("run: python generate_main_tsv.py <cdhit*clstr> <kCluster_clusters*tsv> <unique_bio_assess*tsv> <total_bio_assess*tsv>")
+else:
+    cdhit_clstrs_file = sys.argv[1]
+    kCluster_clusters_file = sys.argv[2]
+    unique_bio_assess = sys.argv[3]
+    inunique_bio_assess = sys.argv[4]
+
+
+
 CDH_seqs = {}
 # Reading CDHIT transcripts to clusterID
-clstr_file = open("cdhit/cdhit_pc2_transcripts_80.fa.clstr", "r")
+clstr_file = open(cdhit_clstrs_file, "r")
 clstr_data = clstr_file.read()
 clstr_file.close()
 
@@ -32,7 +42,7 @@ for i in range(1, len(all_clusters), 1):
 Parsing kCluster Clusters file
 """
 kCl_seqs = {}
-with open("clusters_c66.0_66%_clusters.tsv", "r") as kCL:
+with open(kCluster_clusters_file, "r") as kCL:
     next(kCL)
     for line in kCL:
         cline = line.split()
@@ -46,9 +56,53 @@ with open("clusters_c66.0_66%_clusters.tsv", "r") as kCL:
 ---------------------------------------------------------------------
 """
 
+
+empty_d = {"CC": 0, "IC": 0, "CM": 0, "IM": 0}
+kCl_to_CDH = {"CC": dict(empty_d), "IC": dict(
+    empty_d), "CM": dict(empty_d), "IM": dict(empty_d)}
+with open(inunique_bio_assess, 'r') as tsv:
+    next(tsv)
+    for line in tsv:
+        line = line.split()
+        kCl_ID = line[0]
+        kCl_type = line[1]
+        CDH_ID = line[2]
+        CDH_type = line[3]
+        kCl_to_CDH[kCl_type][CDH_type] += 1
+
+pr = PT()
+pr.field_names = ["kCl/CDH", "CC", "IC", "CM", "IM", "Total"]
+total_clusters = 0
+TYPES = ["CC", "IC", "CM", "IM"]
+
+cols = [0, 0, 0, 0]
+total_sum = 0
+for TYPE in TYPES:
+    row = []
+    for T in TYPES:
+        total_clusters += kCl_to_CDH[TYPE][T]
+        row.append(kCl_to_CDH[TYPE][T])
+    pr.add_row([TYPE]+row+[str(sum(row))])
+    total_sum += sum(row)
+    for i in range(len(row)):
+        cols[i] += row[i]
+s_cols = map(str, cols)
+pr.add_row(["---", "---", "---", "---", "---", "---"])
+pr.add_row(["Total"] + s_cols + [str(total_sum)])
+
+print pr
+
+
+
+"""
+---------------------------------------------------------------------
+"""
+
+
+
 empty_d = {"CC":0, "IC":0, "CM":0, "IM":0}
 pairwise_count = {"CC":dict(empty_d), "IC":dict(empty_d), "CM":dict(empty_d), "IM":dict(empty_d)}
-with open("uniq_bio_assess.tsv", 'r') as tsv:
+with open(unique_bio_assess, 'r') as tsv:
     next(tsv)
     for line in tsv:
         line = line.split()
@@ -63,12 +117,19 @@ with open("uniq_bio_assess.tsv", 'r') as tsv:
 ---------------------------------------------------------------------
 """
 
+
+
+
+
+"""
+
+"""
 kCl_to_CDH = {"CC": dict(), "IC": dict(), "CM": dict(), "IM": dict()}
 CDH_to_kCl = {"CC": dict(), "IC": dict(), "CM": dict(), "IM": dict()}
 CDH_to_type = {}
 kCl_to_type = {}
 
-with open("uniq_bio_assess.tsv", 'r') as tsv:
+with open(unique_bio_assess, 'r') as tsv:
     next(tsv)
     for line in tsv:
         line = line.split()
@@ -154,25 +215,6 @@ for TYPE in ["CC","IC","IM","CM"]:
     
     CDH[TYPE] = keys_len
     
-
-
-#print CDH
-# print uq_CDH
-# print sum(uq_CDH.values())
-
-# print "Total: ", KCL
-# print sum(KCL.values())
-# print "Uniq: ", uq_KCL
-# print sum(uq_KCL.values())
-
-# print "-----"
-
-# print "Total: ", CDH
-# print sum(CDH.values())
-# print "Uniq: ", uq_CDH
-# print sum(uq_CDH.values())
-
-# print "-----"
 
 result = PT()
 head = []
