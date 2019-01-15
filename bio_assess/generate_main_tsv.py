@@ -85,7 +85,8 @@ with open(kCluster_clusters_file, "r") as kCluster:
 
 unique_result = set()
 
-with open(fasta_file, 'r') as fasta:
+with open(fasta_file, 'r') as fasta, open("total_" + output_file , 'w') as total_bio_assess:
+    total_bio_assess.write("kCl_id\tkCl_type\tCDH_id\tCDH_type\n")
     for line in fasta:
         if line[0] == ">":
             tr_id = line.split("|")[0][1:]
@@ -95,8 +96,9 @@ with open(fasta_file, 'r') as fasta:
             KCL_type = kCluster_types[KCL_ID]
             _record = "%s\t%s\t%s\t%s\n" % (KCL_ID, KCL_type, CDH_ID, CDH_type)
             unique_result.add(_record)
+            total_bio_assess.write(_record)
 
-with open(output_file, 'w') as bio_assess:
+with open("uniq_" + output_file, 'w') as bio_assess:
     bio_assess.write("kCl_id\tkCl_type\tCDH_id\tCDH_type\n")
     for res in sorted(unique_result):
          bio_assess.write(res)
