@@ -52,11 +52,6 @@ with open(names_map_file) as namesMap:
         id_to_name[_id] = _name
         name_to_id[_name] = _id
 
-print ("Calculating Number of kmers...")
-seq_to_kmersNo = {}
-for seq_record in SeqIO.parse(fasta_file, "fasta"):
-    seq_to_kmersNo[name_to_id[seq_record.id]] = len(seq_record) - kmer_size + 1
-
 
 print ("Reading Colors & Groups...")
 groups = {}
@@ -71,8 +66,19 @@ with open(map_index_file) as MAP:
             values = map(int, line[1].split(","))
             groups[group] = values
 
+
+print ("Counting Colors...")
 colors = Counter(colors)
-print ("Done Counting Colors...")
+
+print ("Calculating Number of kmers...")
+readID_to_kmersNo = {}
+for k, v in groups.items():
+    _count = colors[k]
+    for read_id in v:
+        if read_id not in readID_to_kmersNo:
+            readID_to_kmersNo[read_id] = _count
+        else:
+            readID_to_kmersNo[read_id] += _count
 
 edges = {}
 nodes = set()
@@ -122,7 +128,7 @@ tsv.write("seq_1\tseq_2\tshared_kmers\tnorm%\n")
 
 for _1st, info in tqdm.tqdm(edges.items()):
     for _2nd, _no_shared_kmers in info.items():
-        _smallest_kmers_no = min(seq_to_kmersNo[_1st], seq_to_kmersNo[_2nd])
+        _smallest_kmers_no = min(readID_to_kmersNo[_1st], readID_to_kmersNo[_2nd])
         _similarity = _no_shared_kmers / _smallest_kmers_no  # Normalized Weight
         _similarity *= 100
 
