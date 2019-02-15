@@ -64,9 +64,12 @@ colors = []
 with open(map_index_file) as MAP:
     for line in MAP:
         if ":" in line:
-            colors.append(int(re.findall(r':(\d+)',line)[0]))
+            colors.append(int(line.strip().split(":")[-1]))
         elif "-" in line:
-            groups[int(re.findall(r'(\d+)-', line)[0])] = [int(i) for i in re.findall(r"(\d+),", line)]
+            line = line[0:-2].strip().split("-")
+            group = int(line[0])
+            values = map(int, line[1].split(","))
+            groups[group] = values
 
 colors = Counter(colors)
 print ("Done Counting Colors...")
