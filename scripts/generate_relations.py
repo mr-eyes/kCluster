@@ -19,15 +19,6 @@ import json
 import sys
 import os
 from Bio import SeqIO
-
-
-def ids_to_names(cluster):
-    new_cluster = []
-
-    for id in cluster:
-        new_cluster.append(id_to_name[id])
-    
-    return new_cluster
     
 names_map_file = ""
 map_index_file = ""
@@ -61,11 +52,6 @@ with open(names_map_file) as namesMap:
         id_to_name[_id] = _name
         name_to_id[_name] = _id
 
-print ("Calculating Number of kmers...")
-seq_to_kmersNo = {}
-for seq_record in SeqIO.parse(fasta_file, "fasta"):
-    seq_to_kmersNo[name_to_id[seq_record.id]] = len(seq_record) - kmer_size + 1
-
 
 print ("Reading Colors & Groups...")
 groups = {}
@@ -73,14 +59,26 @@ colors = []
 with open(map_index_file) as MAP:
     for line in MAP:
         if ":" in line:
-            colors.append(int(re.findall(r':(\d+)',line)[0]))
+            colors.append(int(line.strip().split(":")[-1]))
         elif "-" in line:
-            groups[int(re.findall(r'(\d+)-', line)[0])] = [int(i) for i in re.findall(r"(\d+),", line)]
+            line = line[0:-2].strip().split("-")
+            group = int(line[0])
+            values = map(int, line[1].split(","))
+            groups[group] = values
 
+
+print ("Counting Colors...")
 colors = Counter(colors)
-print ("Done Counting Colors...")
-#print ("Collecting Garbage")
-gc.collect()
+
+print ("Calculating Number of kmers...")
+readID_to_kmersNo = {}
+for k, v in groups.items():
+    _count = colors[k]
+    for read_id in v:
+        if read_id not in readID_to_kmersNo:
+            readID_to_kmersNo[read_id] = _count
+        else:
+            readID_to_kmersNo[read_id] += _count
 
 edges = {}
 nodes = set()
@@ -122,10 +120,6 @@ for color, tr_ids in tqdm.tqdm(groups.items()):
         #     edges[_seq2] = {_seq1: color_count}
 
 
-del colors
-del groups
-gc.collect()
-
 
 print ("Writing TSV file ...")
 
@@ -134,7 +128,7 @@ tsv.write("seq_1\tseq_2\tshared_kmers\tnorm%\n")
 
 for _1st, info in tqdm.tqdm(edges.items()):
     for _2nd, _no_shared_kmers in info.items():
-        _smallest_kmers_no = min(seq_to_kmersNo[_1st], seq_to_kmersNo[_2nd])
+        _smallest_kmers_no = min(readID_to_kmersNo[_1st], readID_to_kmersNo[_2nd])
         _similarity = _no_shared_kmers / _smallest_kmers_no  # Normalized Weight
         _similarity *= 100
 
