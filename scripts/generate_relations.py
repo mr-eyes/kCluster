@@ -19,15 +19,6 @@ import json
 import sys
 import os
 from Bio import SeqIO
-
-
-def ids_to_names(cluster):
-    new_cluster = []
-
-    for id in cluster:
-        new_cluster.append(id_to_name[id])
-    
-    return new_cluster
     
 names_map_file = ""
 map_index_file = ""
@@ -79,8 +70,6 @@ with open(map_index_file) as MAP:
 
 colors = Counter(colors)
 print ("Done Counting Colors...")
-#print ("Collecting Garbage")
-gc.collect()
 
 edges = {}
 nodes = set()
@@ -121,10 +110,6 @@ for color, tr_ids in tqdm.tqdm(groups.items()):
         # else:
         #     edges[_seq2] = {_seq1: color_count}
 
-
-del colors
-del groups
-gc.collect()
 
 
 print ("Writing TSV file ...")
