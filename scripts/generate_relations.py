@@ -158,7 +158,7 @@ for _1st, info in tqdm.tqdm(edges.items()):
         _similarity = _no_shared_kmers / _smallest_kmers_no  # Normalized Weight
         _similarity *= 100
 
-        l = "%d,%d,%.2f\n" % (_1st, _2nd, _similarity)
+        l = "%d\t%d\t%.2f\n" % (_1st, _2nd, _similarity)
         tsv.write(l)
 
 tsv.close()
