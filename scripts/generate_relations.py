@@ -23,9 +23,8 @@ from Bio import SeqIO
 
 names_map_file = ""
 map_index_file = ""
-#fasta_file = ""
 output_file = ""
-#kmer_size = 25
+
 
 if len(sys.argv) < 3:
     exit("Please pass <map_index_file> <names_map_file> <new:namesFile>")
@@ -33,8 +32,6 @@ if len(sys.argv) < 3:
 else:
     map_index_file = sys.argv[1]
     names_map_file = sys.argv[2]
-    # fasta_file = sys.argv[3]
-    # kmer_size = int(sys.argv[4]) No need after the last edit
 
 if len(sys.argv) == 4:
         output_file = sys.argv[3]
@@ -65,6 +62,7 @@ print ("Reading Colors & Groups...")
 groups = {}
 colors = []
 
+# In case the MAP index is compressed
 if ".gz" in map_index_file:
     with gzip.open(map_index_file, 'rt') as MAP:
         for line in MAP:
@@ -100,8 +98,6 @@ for k, v in groups.items():
             readID_to_kmersNo[read_id] = colors_count
         else:
             readID_to_kmersNo[read_id] += colors_count
-
-
 
 
 #print ("Collecting Garbage")
@@ -154,16 +150,14 @@ for color, tr_ids in tqdm.tqdm(groups.items()):
 print ("Writing TSV file ...")
 
 tsv = open(output_file + ".tsv", "w")
-#tsv.write("seq_1\tseq_2\tdist%\n")
+tsv.write("seq_1\tseq_2\tNorm%\n")
 
 for _1st, info in tqdm.tqdm(edges.items()):
     for _2nd, _no_shared_kmers in info.items():
         _smallest_kmers_no = min(readID_to_kmersNo[_1st], readID_to_kmersNo[_2nd])
         _similarity = _no_shared_kmers / _smallest_kmers_no  # Normalized Weight
         _similarity *= 100
-        #_dissimilarity = 100 - _similarity
 
-        #l = "%d\t%d\t%d\t%.2f\n" % (_1st, _2nd, _no_shared_kmers, _dissimilarity)
         l = "%d,%d,%.2f\n" % (_1st, _2nd, _similarity)
         tsv.write(l)
 
