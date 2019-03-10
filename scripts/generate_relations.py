@@ -20,7 +20,11 @@ import gzip
 import sys
 import os
 from Bio import SeqIO
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> f7c5e66c613b4e3f531813996de5a8248429b7fc
 names_map_file = ""
 map_index_file = ""
 #fasta_file = ""
@@ -64,6 +68,7 @@ with open(names_map_file) as namesMap:
 print ("Reading Colors & Groups...")
 groups = {}
 colors = []
+<<<<<<< HEAD
 
 if ".gz" in map_index_file:
     with gzip.open(map_index_file, 'rt') as MAP:
@@ -87,6 +92,18 @@ else:
                 group = int(line[0])
                 values = list(map(int, line[1].split(",")))
                 groups[group] = values
+=======
+with open(map_index_file) as MAP:
+    for line in MAP:
+        if ":" in line:
+            colors.append(int(line.strip().split(":")[-1]))
+        elif "-" in line:
+            line = line[0:-2].strip().split("-")
+            group = int(line[0])
+            values = map(int, line[1].split(","))
+            groups[group] = values
+
+>>>>>>> f7c5e66c613b4e3f531813996de5a8248429b7fc
 
 print ("Counting Colors...")
 colors = Counter(colors)
@@ -94,6 +111,7 @@ colors = Counter(colors)
 print ("Calculating Number of kmers...")
 readID_to_kmersNo = {}
 for k, v in groups.items():
+<<<<<<< HEAD
     colors_count = colors[k]
     for read_id in v:
         if read_id not in readID_to_kmersNo:
@@ -106,6 +124,14 @@ for k, v in groups.items():
 
 #print ("Collecting Garbage")
 gc.collect()
+=======
+    _count = colors[k]
+    for read_id in v:
+        if read_id not in readID_to_kmersNo:
+            readID_to_kmersNo[read_id] = _count
+        else:
+            readID_to_kmersNo[read_id] += _count
+>>>>>>> f7c5e66c613b4e3f531813996de5a8248429b7fc
 
 edges = {}
 nodes = set()
@@ -146,10 +172,13 @@ for color, tr_ids in tqdm.tqdm(groups.items()):
         #     edges[_seq2] = {_seq1: color_count}
 
 
+<<<<<<< HEAD
 # del colors
 # del groups
 # gc.collect()
 
+=======
+>>>>>>> f7c5e66c613b4e3f531813996de5a8248429b7fc
 
 print ("Writing TSV file ...")
 
