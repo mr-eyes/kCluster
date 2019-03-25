@@ -3,8 +3,9 @@ set -euo pipefail
 RUNLOG=runlog.log
 echo "Run by `whoami` on `date`" > $RUNLOG # write log while running.
 
-REF_FA=test_data/min_test_sample.fa  # Reference Fasta
-REF_NAMES=test_data/min_test_sample.fa.names # Reference Names
+REF_FA=$1  # Reference Fasta
+REF_NAMES=$2 # Reference Names
+
 kCluster=/home/mabuelanin/Desktop/kprocessor/refseq_orthodb/kCluster
 OUT=tmp_idx/idx_min_test
 
@@ -19,8 +20,8 @@ echo "--------------------" >> ${RUNLOG}
 
 # Building Pairwise
 echo "*** Building pairwise matrix ***"
-#pypy ${kCluster}/scripts/generate_relations.py ${OUT}.map ${OUT}.namesMap 1>> ${RUNLOG}
-#mv idx*tsv tmp_idx
+pypy ${kCluster}/scripts/generate_relations.py ${OUT}.map ${OUT}.namesMap 1>> ${RUNLOG}
+mv idx*tsv tmp_idx
 echo "--------------------" >> ${RUNLOG}
 
 echo "Verifying..."
