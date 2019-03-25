@@ -5,18 +5,32 @@ echo "Run by `whoami` on `date`" > $RUNLOG # write log while running.
 
 REF_FA=$1  # Reference Fasta
 REF_NAMES=$2 # Reference Names
-PREFIX=$3
+
+kCluster=/home/mabuelanin/Desktop/kprocessor/refseq_orthodb/kCluster
+OUT=tmp_idx/idx_min_test
+
+mkdir -p tmp_idx
 
 export PATH=$PATH:/home/mabuelanin/Desktop/kprocessor/refseq_orthodb/skipmers_effect/kProcessor/build/apps/
 
-echo "Verifying..."
+# Indexing
+echo "*** Indexing ***"
+kProcessorApp index -i ${REF_FA} --names ${REF_NAMES} -k 21 -d 1 -m MAP -o ${OUT} 2>> ${RUNLOG}
+echo "--------------------" >> ${RUNLOG}
 
+# Building Pairwise
+echo "*** Building pairwise matrix ***"
+pypy ${kCluster}/scripts/generate_relations.py ${OUT}.map ${OUT}.namesMap 1>> ${RUNLOG}
+mv idx*tsv tmp_idx
+echo "--------------------" >> ${RUNLOG}
+
+echo "Verifying..."
 # Iterate over pairwise
-sed 1d ${PREFIX}.tsv | while IFS=$'\t' read -r gene1 gene2 kmers norm
+sed 1d ${OUT}.tsv | while IFS=$'\t' read -r gene1 gene2 kmers norm
 do 
     # Get genes header
-    gene1header=$(grep -E "\s${gene1}$" ${PREFIX}.namesMap | awk '{print $1}')
-    gene2header=$(grep -E "\s${gene2}$" ${PREFIX}.namesMap | awk '{print $1}')
+    gene1header=$(grep -E "\s${gene1}$" ${OUT}.namesMap | awk '{print $1}')
+    gene2header=$(grep -E "\s${gene2}$" ${OUT}.namesMap | awk '{print $1}')
     
     # Count shared kmers
     seqkit grep -r -p ${gene1header} ${REF_FA} | jellyfish count -t 8 -C -m 21 -s 1000 -o tmp_jelly_seq1 /dev/fd/0
