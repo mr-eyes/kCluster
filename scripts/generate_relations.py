@@ -150,7 +150,7 @@ for color, tr_ids in tqdm.tqdm(groups.items()):
 print ("Writing TSV file ...")
 
 tsv = open(output_file + ".tsv", "w")
-tsv.write("seq_1\tseq_2\tNorm%\n")
+tsv.write("seq_1\tseq_2\tkmers\tNorm%\n")
 
 for _1st, info in tqdm.tqdm(edges.items()):
     for _2nd, _no_shared_kmers in info.items():
@@ -158,7 +158,7 @@ for _1st, info in tqdm.tqdm(edges.items()):
         _similarity = _no_shared_kmers / _smallest_kmers_no  # Normalized Weight
         _similarity *= 100
 
-        l = "%d\t%d\t%.2f\n" % (_1st, _2nd, _similarity)
+        l = "%d\t%d\t%d\t%.2f\n" % (_1st, _2nd,_no_shared_kmers, _similarity)
         tsv.write(l)
 
 tsv.close()
