@@ -7,6 +7,9 @@ REF_FA=$1  # Reference Fasta
 REF_NAMES=$2 # Reference Names
 PREFIX=$3
 
+# set to one in case want jellyFish kmer counting
+RUN_JELLY=false
+
 export PATH=$PATH:/home/mabuelanin/Desktop/kprocessor/refseq_orthodb/skipmers_effect/kProcessor/build/apps/
 
 echo "Verifying..."
@@ -27,6 +30,11 @@ do
     echo "" > tmp1.fa
     echo "" > tmp2.fa
 
+    if ${RUN_JELLY};
+    then
+    echo "***Running kmer countin using JellyFish***"
+    
+    
     for value in $READS1
     do
         seqkit grep -r -p ${value} ${REF_FA} >> tmp1.fa
@@ -56,25 +64,30 @@ do
         echo "WRONG shared_kmers $gene1header & $gene2header = $verified_kmers not $kmers" >> ${RUNLOG}
     fi
 
+    fi
+
+    echo "***Check by traversing the index itself***"
     # Check by traversing the index itself
     grep "[-,\,]$gene1," ${PREFIX}.map | awk -F'-' '{print $1}' | sort | uniq > seq1_colors
     grep "[-,\,]$gene2," ${PREFIX}.map | awk -F'-' '{print $1}' | sort | uniq > seq2_colors
+
     common_colors=$(join seq1_colors seq2_colors)
+    echo $common_colors
     rm seq1_colors seq2_colors
 
     shared_kmers=0
 
     for value in $common_colors
     do
-        cnt=$(grep ":${value}$" tmp_idx/*map | wc -l)
+        cnt=$(grep ":${value}$" ${PREFIX}*map | wc -l)
         shared_kmers=$((shared_kmers+cnt))
     done
 
-    if [ $shared_kmers -eq $verified_kmers ];
+    if [ $shared_kmers -eq $kmers ];
     then
-        echo "CORRECT [2] shared_kmers $gene1header & $gene2header = $verified_kmers" >> ${RUNLOG}
+        echo "CORRECT [2] shared_kmers $gene1header & $gene2header = $kmers" >> ${RUNLOG}
     else
-        echo "WRONG [2] shared_kmers $gene1header & $gene2header = $verified_kmers not $shared_kmers" >> ${RUNLOG}
+        echo "WRONG [2] shared_kmers $gene1header & $gene2header = $kmers not $shared_kmers" >> ${RUNLOG}
     fi
 
     # Verify similarity percentage kmers
