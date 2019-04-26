@@ -32,3 +32,18 @@ index-size: 11.9G
 ### indexing: min_protein_coding_gencode.v28.transcripts.fa with K=(21,25) & Q=31
 
 FAILED SEGFAULT
+
+---
+
+### virtualQs {'minQ': 1, 'maxQ': 31, 'stepQ': 5} - min_protein_coding_gencode.v28.transcripts.fa
+
+Qs = 1,6,11,16,21,26,31
+WALL-TIME: 27:41.60
+RAM :      14.7 GB
+
+
+### virtualQs {'minQ': 5, 'maxQ': 29, 'stepQ': 2} - min_protein_coding_gencode.v28.transcripts.fa
+
+TIME:               50 min (ENTERED SWAP)
+Total Memory :      15.1 GB
+VirtualQs memory:   ~3 GB (will be enhanced)
