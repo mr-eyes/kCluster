@@ -6,7 +6,6 @@ import argparse
 import sys
 import os
 import pickle
-import time
 
 # TODO use logging instead of normal prints.
 # TODO use Collections:Defaultdict for optimized performance.
@@ -48,7 +47,7 @@ class virtualQs:
 
         if maxQ > self.__kSize:
             print(
-                "maxQ should't exceed the kmer Size, auto reinitializing Q with kSize" % (self.__kSize), file=sys.stderr)
+                "*WARNING* maxQ should't exceed the kmer Size, auto reinitializing Q with kSize %d" % (self.__kSize), file=sys.stderr)
             self.__maxQ = self.__kSize
 
         elif maxQ is 0:
@@ -337,6 +336,6 @@ if __name__ == '__main__':
         ██╔═██╗ ██║     ██║     ██║   ██║╚════██║   ██║   ██╔══╝  ██╔══██╗
         ██║  ██╗╚██████╗███████╗╚██████╔╝███████║   ██║   ███████╗██║  ██║
         ╚═╝  ╚═╝ ╚═════╝╚══════╝ ╚═════╝ ╚══════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝                                            
-    \n-----""")
+    \n\n""")
 
     main()
