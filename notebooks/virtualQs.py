@@ -6,13 +6,18 @@ import argparse
 import sys
 import os
 import pickle
+import time
 
-VERBOSE = 0
+# TODO use logging instead of normal prints.
+# TODO use Collections:Defaultdict for optimized performance.
+
 class virtualQs:
+    """Holds the superColors and superColorsCount tables."""
 
-    __kSize = 0
+    __kSize = None
 
-    def __init__(self, index_file_path):
+
+    def __init__(self, index_file_path: str):
         """VirtualQs class constructor.
 
         Args:
@@ -20,25 +25,18 @@ class virtualQs:
 
         """
 
-        # if ".mqf" in index_file_path:
-        #     exit("pass the index file prefix without extension")
-
-        if os.path.exists(index_file_path + ".mqf"):
-            print("Checking the file: ", index_file_path + ".mqf")
-            #sys.stderr.write()
-            #exit("index file does not exist")
-
         self.kf = kp.kDataFrame.load(index_file_path)
         self.__kSize = self.kf.getkSize()
 
-        if self.__kSize == 0:
-            exit("error loading the index")
+        if self.__kSize is None:
+            print("error loading the index", file = sys.stderr)
+            sys.exit(1)
 
-    #@staticmethod
     def __mask(self, Q):
+        """create a bit mask given kmer size and Q value."""
         return (~(-1 << Q*2)) << (self.__kSize*2 - Q*2)
 
-    def set_params(self, minQ, maxQ, stepQ=1):
+    def set_params(self, minQ: int, maxQ: int, stepQ: int = 2):
         """virtualQs parameters setting.
 
         Args:
@@ -50,10 +48,10 @@ class virtualQs:
 
         if maxQ > self.__kSize:
             print(
-                "maxQ should't exceed the kmer Size, auto resetting Q=kSize", file=sys.stderr)
+                "maxQ should't exceed the kmer Size, auto reinitializing Q with kSize" % (self.__kSize), file=sys.stderr)
             self.__maxQ = self.__kSize
 
-        elif maxQ == 0:
+        elif maxQ is 0:
             self.__maxQ = self.__kSize
 
         else:
@@ -79,19 +77,28 @@ class virtualQs:
         # Determine minQ and maxQ and get list of masks & superColorsDIct initialization
         # for Q in range(maxQ, minQ-1, -stepQ):
         for Q in range(self.__minQ, self.__maxQ + 1, self.__stepQ):
-            print("َQ:  ", Q)
             self.__masks[Q] = self.__mask(Q)
             self.superColors[Q] = {}
             self.superColorsCount[Q] = {}
             self.temp_superColors[Q] = []
 
     def export_superColors(self, prefix, Q, method="json"):
+        """superColors table exporting
+
+        Retrieves Q value needs to be exported and output file format 
+
+        Args:
+            prefix: exported file name prefix.
+            Q: Q value to be extracted from the superColors tables.
+            method: specify the output file format pickle or json.  
+        """
+
         if Q not in self.superColors and Q not in self.superColorsCount:
             exit("virtualQ: %d does not exist" % Q)
 
-        if method == "pickle":
+        if method is "pickle":
             suffix = ".pickle"
-        elif method == "json":
+        elif method is "json":
             suffix = ".json"
         else:
             exit("export only in [pickle,json]")
@@ -99,7 +106,7 @@ class virtualQs:
         virtualQs_file_name = prefix + "_" + str(Q) + suffix
         virtualQs_count_file_name = prefix + "_" + str(Q) + "_counts" + suffix
 
-        if method == "pickle":
+        if method is "pickle":
             print("writing virtual Q %d pickles ..." % Q)
             with open(virtualQs_file_name, "wb") as f:
                 pickle.dump(self.superColors[Q], f, pickle.HIGHEST_PROTOCOL)
@@ -108,7 +115,7 @@ class virtualQs:
                 pickle.dump(
                     self.superColorsCount[Q], f, pickle.HIGHEST_PROTOCOL)
 
-        elif method == "json":
+        elif method is "json":
             with open(virtualQs_file_name, "w") as f:
                 f.write(json.dumps(
                     self.superColors[Q], sort_keys=True, indent=4, separators=(',', ': ')))
@@ -146,17 +153,17 @@ class virtualQs:
         return kmer_str
 
 
-def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, output_type, force_write = True):
+def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, output_type, force_write=True):
     VQ = virtualQs(index_file_path=index_prefix)
     VQ.set_params(minQ=min_q, maxQ=max_q, stepQ=step_q)
-    
-    print(VQ.get_params)
+
+    #print("Constructing virtualQs with params: ", VQ.get_params, file = sys.stderr)
 
     it = VQ.kf.begin()
     prev_kmer = it.getHashedKmer()
     prev_kmer_color = it.getKmerCount()
 
-    # Create list of kmers
+    # Iterate over all kmers.
     while it != VQ.kf.end():
         it.next()
         curr_kmer = it.getHashedKmer()
@@ -167,29 +174,32 @@ def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, outpu
 
         # Apply all masks with all Qs
         for Q, MASK in VQ.masks.items():
+
             # True if there's match, False if not
             matched = not bool(xor & MASK)
 
             if matched:
-                print("Matching Q%d %s & %s | TRUE | [prevC:%d, currC=%d]" % (Q, VQ.int_to_str(
-                    prev_kmer, VQ.kSize), VQ.int_to_str(curr_kmer, VQ.kSize), prev_kmer_color, curr_kmer_color))
-
                 VQ.temp_superColors[Q] += [prev_kmer_color, curr_kmer_color]
 
+                # print("Matching Q%d %s & %s | TRUE | [prevC:%d, currC=%d]" % (Q, VQ.int_to_str(
+                #     prev_kmer, VQ.kSize), VQ.int_to_str(curr_kmer, VQ.kSize), prev_kmer_color, curr_kmer_color))
+
+
             else:
-                print("Matching Q%d %s & %s | FALSE | [prevC:%d, currC=%d]" % (Q, VQ.int_to_str(
-                    prev_kmer, VQ.kSize), VQ.int_to_str(curr_kmer, VQ.kSize),  prev_kmer_color, curr_kmer_color))
                 VQ.temp_superColors[Q].append(prev_kmer_color)
                 super_color_id = VQ.create_super_color(VQ.temp_superColors[Q])
+
+                # print("Matching Q%d %s & %s | FALSE | [prevC:%d, currC=%d]" % (Q, VQ.int_to_str(
+                #     prev_kmer, VQ.kSize), VQ.int_to_str(curr_kmer, VQ.kSize),  prev_kmer_color, curr_kmer_color))
+
 
                 # Check if the superColor already exist
                 # If yes: increment the count to one
                 # If No:  Insert the new superColor and set the count to 1
                 if super_color_id not in VQ.superColors[Q]:
-                    if len(VQ.temp_superColors[Q]) == 0:
-                        print("Inserting an empty temp_superColors[%d]" % Q)
-                    VQ.superColors[Q][super_color_id] = list(
-                        set(VQ.temp_superColors[Q]))
+
+                    VQ.superColors[Q][super_color_id] = list(set(VQ.temp_superColors[Q]))
+
                     VQ.superColorsCount[Q][super_color_id] = 1
 
                 else:
@@ -199,7 +209,7 @@ def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, outpu
                 VQ.temp_superColors[Q] = [curr_kmer_color]
 
         #print(superColors[1])
-        print("+++++++++++++++++++++++++++++++++++++++++++++++")
+        #print("+++++++++++++++++++++++++++++++++++++++++++++++")
 
         prev_kmer = curr_kmer
         prev_kmer_color = curr_kmer_color
@@ -221,31 +231,30 @@ def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, outpu
             # IF the supercolor already exist, just increment it
             VQ.superColorsCount[Q][super_color_id] += 1
 
-    print("SUPER COLORS")
+    # print("SUPER COLORS")
+
+    # print(json.dumps(VQ.superColors, sort_keys=True, indent=4, separators=(',', ': ')))
+    # print("\n--------------------------------\n\n")
+    # print("SUPER COLORS COUNT")
+    # print(json.dumps(VQ.superColorsCount, sort_keys=True,
+    #                 indent=4, separators=(',', ': ')))
+    # print("\n--------------------------------\n\n")
+    # print("TEMP SUPER COLORS")
+    # print(json.dumps(VQ.temp_superColors, sort_keys=True,
+    #                 indent=4, separators=(',', ': ')))
+    # print("\n--------------------------------\n\n")
+
+    # print(VQ.superColors)
+
+    # print("\n--------------------------------\n\n")
+    # print("\n--------------------------------\n\n")
+    # print("\n--------------------------------\n\n")
+    # print("\n--------------------------------\n\n")
+
+    # print(VQ.superColorsCount)
 
 
-    print(json.dumps(VQ.superColors, sort_keys=True, indent=4, separators=(',', ': ')))
-    print("\n--------------------------------\n\n")
-    print("SUPER COLORS COUNT")
-    print(json.dumps(VQ.superColorsCount, sort_keys=True,
-                    indent=4, separators=(',', ': ')))
-    print("\n--------------------------------\n\n")
-    print("TEMP SUPER COLORS")
-    print(json.dumps(VQ.temp_superColors, sort_keys=True,
-                    indent=4, separators=(',', ': ')))
-    print("\n--------------------------------\n\n")
-
-    print(VQ.superColors)
-
-    print("\n--------------------------------\n\n")
-    print("\n--------------------------------\n\n")
-    print("\n--------------------------------\n\n")
-    print("\n--------------------------------\n\n")
-
-    print(VQ.superColorsCount)
-
-
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-i', action='store', dest='index_prefix',
@@ -269,7 +278,7 @@ if __name__ == '__main__':
     parser.add_argument('-o', action='store', dest='output_prefix',
                         help='virtualQs output files prefix --optional')
 
-    if len(sys.argv)==1:
+    if len(sys.argv) is 1:
         parser.print_help(sys.stderr)
         sys.exit(1)
 
@@ -279,24 +288,30 @@ if __name__ == '__main__':
         if os.path.isfile(args.index_prefix + ".mqf"):
             index_file_path = args.index_prefix
         else:
-            sys.exit('Index prefix ' + args.index_prefix + 'Does not exist!')
+            print('Index prefix ' + args.index_prefix + ' Does not exist!', file = sys.stderr)
+            sys.exit(1)
+
     else:
-        exit("must provide index file prefix, use -i <index_file_prefix>")
+        print("must provide index file prefix, use - i < index_file_prefix >", file=sys.stderr)
+        sys.exit(1)
 
     if args.minQ:
         minQ = int(args.minQ)
     else:
-        exit("must provide minimum Q, use -m <int>")
+        print("must provide minimum Q, use -m <int>", file=sys.stderr)
+        sys.exit(1)
 
     if args.maxQ:
         maxQ = int(args.maxQ)
     else:
-        exit("must provide maximum Q, use -M <int>")
+        print("must provide maximum Q, use -M <int>", file = sys.stderr)
+        sys.exit(1)
 
     if args.stepQ:
         stepQ = int(args.stepQ)
     else:
-        exit("must provide Q step, use -s <int>")
+        print("must provide Q step, use -s <int>", file = sys.stderr)
+        sys.exit(1)
 
     if args.output_prefix:
         output_prefix = args.output_prefix
@@ -309,5 +324,19 @@ if __name__ == '__main__':
     else:
         output_type = "json"
 
-    construct_virtualQs(minQ, maxQ, stepQ, index_file_path, output_prefix, output_type)
+    construct_virtualQs(minQ, maxQ, stepQ, index_file_path,
+                        output_prefix, output_type)
 
+
+if __name__ == '__main__':
+
+    print("""
+        ██╗  ██╗ ██████╗██╗     ██╗   ██╗███████╗████████╗███████╗██████╗ 
+        ██║ ██╔╝██╔════╝██║     ██║   ██║██╔════╝╚══██╔══╝██╔════╝██╔══██╗
+        █████╔╝ ██║     ██║     ██║   ██║███████╗   ██║   █████╗  ██████╔╝
+        ██╔═██╗ ██║     ██║     ██║   ██║╚════██║   ██║   ██╔══╝  ██╔══██╗
+        ██║  ██╗╚██████╗███████╗╚██████╔╝███████║   ██║   ███████╗██║  ██║
+        ╚═╝  ╚═╝ ╚═════╝╚══════╝ ╚═════╝ ╚══════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝                                            
+    \n-----""")
+
+    main()
