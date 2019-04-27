@@ -257,25 +257,25 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-i', action='store', dest='index_prefix',
-                        help='index file prefix')
+                        help='index file prefix <str>')
 
     parser.add_argument('-m', action='store', dest='minQ',
-                        help='minimum Q')
+                        help='minimum Q <int>')
 
     parser.add_argument('-M', action='store', dest='maxQ',
-                        help='maximum Q, 0 for Q=kSize')
+                        help='maximum Q <int>, 0 for Q=kSize')
 
     parser.add_argument('-s', action='store', dest='stepQ',
-                        help='Q step')
+                        help='Q step <int>')
 
     parser.add_argument('-f', action='store', dest='force',
-                        help='force rewrite the written virtualQs files')
+                        help='force rewrite the written virtualQs files --optional')
 
     parser.add_argument('-e', action='store', dest='output_type',
-                        help='output type [json|pickle] default:json --optional')
+                        help='output type <json|pickle> default:json --optional')
 
     parser.add_argument('-o', action='store', dest='output_prefix',
-                        help='virtualQs output files prefix --optional')
+                        help='virtualQs output files prefix <str> --optional')
 
     if len(sys.argv) is 1:
         parser.print_help(sys.stderr)
