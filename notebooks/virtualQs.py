@@ -57,8 +57,11 @@ class virtualQs:
             self.__maxQ = maxQ
 
         if(minQ < 1):
-            print("auto resetting minQ to 1", file=sys.stderr)
-            self.__minQ = 1
+            print("*WARNING* minQ shouldn't be less than 1, auto reinitializing minQ to 5", file=sys.stderr)
+            self.__minQ = 5
+        elif minQ > self.__maxQ:
+            print("*WARNING* minQ shouldn't exceed the maxQ, auto reinitializing minQ to maxQ", file=sys.stderr)
+            self.__minQ = self.__maxQ
         else:
             self.__minQ = minQ
 
@@ -93,19 +96,25 @@ class virtualQs:
         """
 
         if Q not in self.superColors and Q not in self.superColorsCount:
-            exit("virtualQ: %d does not exist" % Q)
+            print("virtualQ: {} does not exist".format(Q), file=sys.stderr)
+            sys.exit(1)
+        else:
+            print("Writing")
+        
+        
 
-        if method is "pickle":
+        if method == "pickle":
             suffix = ".pickle"
-        elif method is "json":
+        elif method == "json":
             suffix = ".json"
         else:
-            exit("export only in [pickle,json]")
+            print("export only in [pickle,json]", file=sys.stderr)
+            sys.exit(1)
 
-        virtualQs_file_name = prefix + "_" + str(Q) + suffix
-        virtualQs_count_file_name = prefix + "_" + str(Q) + "_counts" + suffix
+        virtualQs_file_name = prefix + "_Q" + str(Q) + suffix
+        virtualQs_count_file_name = prefix + "_Q" + str(Q) + "_counts" + suffix
 
-        if method is "pickle":
+        if method == "pickle":
             print("writing virtual Q %d pickles ..." % Q)
             with open(virtualQs_file_name, "wb") as f:
                 pickle.dump(self.superColors[Q], f, pickle.HIGHEST_PROTOCOL)
@@ -114,12 +123,13 @@ class virtualQs:
                 pickle.dump(
                     self.superColorsCount[Q], f, pickle.HIGHEST_PROTOCOL)
 
-        elif method is "json":
+        elif method == "json":
             with open(virtualQs_file_name, "w") as f:
+                print("Writing")
                 f.write(json.dumps(
                     self.superColors[Q], sort_keys=True, indent=4, separators=(',', ': ')))
 
-            with open(virtualQs_file_name, "w") as f:
+            with open(virtualQs_count_file_name, "w") as f:
                 f.write(json.dumps(
                     self.superColorsCount[Q], sort_keys=True, indent=4, separators=(',', ': ')))
 
@@ -251,6 +261,14 @@ def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, outpu
     # print("\n--------------------------------\n\n")
 
     # print(VQ.superColorsCount)
+
+    # Save all Qs to files.
+
+    _params = VQ.get_params
+    print(_params)
+    for Q in range(_params["minQ"], _params["maxQ"] + 1, _params["stepQ"]):
+        print("Exporting Q: {}".format(Q))
+        VQ.export_superColors(output_prefix, Q, output_type)
 
 
 def main():
