@@ -9,6 +9,7 @@ import pickle
 
 # TODO use logging instead of normal prints.
 # TODO use Collections:Defaultdict for optimized performance.
+# TODO use NUMBA for optimizing maths and loops
 
 class virtualQs:
     """Holds the superColors and superColorsCount tables."""
@@ -267,7 +268,6 @@ def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, outpu
     _params = VQ.get_params
     print(_params)
     for Q in range(_params["minQ"], _params["maxQ"] + 1, _params["stepQ"]):
-        print("Exporting Q: {}".format(Q))
         VQ.export_superColors(output_prefix, Q, output_type)
 
 
