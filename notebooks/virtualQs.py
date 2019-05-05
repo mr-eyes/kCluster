@@ -99,8 +99,6 @@ class virtualQs:
         if Q not in self.superColors and Q not in self.superColorsCount:
             print("virtualQ: {} does not exist".format(Q), file=sys.stderr)
             sys.exit(1)
-        else:
-            print("Writing")
         
         
 
@@ -126,7 +124,6 @@ class virtualQs:
 
         elif method == "json":
             with open(virtualQs_file_name, "w") as f:
-                print("Writing")
                 f.write(json.dumps(
                     self.superColors[Q], sort_keys=True, indent=4, separators=(',', ': ')))
 
