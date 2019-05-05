@@ -260,10 +260,22 @@ def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, outpu
 
     # print(VQ.superColorsCount)
 
-    # Save all Qs to files.
 
     _params = VQ.get_params
-    print(_params)
+
+    # Convert colors to IDs
+    color_to_ids = {}
+    with open(index_prefix + "colors.intvectors", 'r') as colors:
+        next(colors)  # skip the first line (Number of colors)
+        for line in colors:
+            values = list(map(int, line.strip().split()))
+            color_to_ids[values[0]] = values[2:]
+    
+    for Q in range(_params["minQ"], _params["maxQ"] + 1, _params["stepQ"]):
+        for superColor, colors in VQ.superColors[Q].items():
+            VQ.superColors[Q][superColor] = list({i for c in colors for i in color_to_ids[c]})
+
+    # Save all Qs to files.
     for Q in range(_params["minQ"], _params["maxQ"] + 1, _params["stepQ"]):
         VQ.export_superColors(output_prefix, Q, output_type)
 
