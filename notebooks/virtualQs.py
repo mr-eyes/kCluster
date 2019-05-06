@@ -1,4 +1,6 @@
+from __future__ import division
 import kProcessor as kp
+import itertools
 import random
 import hashlib
 import json
@@ -75,6 +77,8 @@ class virtualQs:
         self.superColors = {}
         self.temp_superColors = {}
         self.superColorsCount = {}
+        self.edges = {}
+        self.seq_to_kmers_no = {}
         self.__masks = {}
 
         # Determine minQ and maxQ and get list of masks & superColorsDIct initialization
@@ -84,6 +88,63 @@ class virtualQs:
             self.superColors[Q] = {}
             self.superColorsCount[Q] = {}
             self.temp_superColors[Q] = []
+            self.edges[Q] = {}
+            self.seq_to_kmers_no[Q] = {}
+
+    def pairwise(self, Q):
+        #print(f"Generating pairwise for Q{Q:02d}")
+        """pairwise similarity matrix construction
+
+        """
+
+        for color, tr_ids in self.superColors[Q].items():
+            color_count = self.superColorsCount[Q][color]
+            #print(f"color: {color}, color_count: {color_count}, tr_ids: {str(tr_ids)}")
+            
+            # For loop to calculate number of kmers per seq_id
+            for tr_id in tr_ids:
+                if tr_id not in self.seq_to_kmers_no[Q]:
+                    self.seq_to_kmers_no[Q][tr_id] = color_count
+                else:
+                    self.seq_to_kmers_no[Q][tr_id] += color_count
+            
+            #print(f"seq_to_kmers: {str(self.seq_to_kmers_no[Q])}")
+
+            for combination in itertools.combinations(tr_ids, 2):
+                _seq1 = combination[0]
+                _seq2 = combination[1]
+
+                if _seq1 in self.edges[Q]:
+                    if _seq2 in self.edges[Q][_seq1]:
+                        self.edges[Q][_seq1][_seq2] += color_count
+                    else:
+                        self.edges[Q][_seq1][_seq2] = color_count
+
+                else:
+                    self.edges[Q][_seq1] = {_seq2: color_count}
+    
+    def export_pairwise(self, prefix, Q):
+        """pairwise similarity matrix exporting as TSV file
+
+
+        """
+                
+        if Q not in self.superColors and Q not in self.superColorsCount:
+            print("virtualQ: {} does not exist".format(Q), file=sys.stderr)
+            sys.exit(1)
+        
+        pairwise_file_name = f"{prefix}_Q{Q:02d}_pairwise.tsv"
+
+        with open(pairwise_file_name, "w") as tsv:
+            tsv.write("seq_1\tseq_2\tshared_kmers\tsimilarity%\n")
+            for seq1, info in self.edges[Q].items():
+                for seq2, no_shared_kmers in info.items():
+                    smallest_kmers_no = min(self.seq_to_kmers_no[Q][seq1], self.seq_to_kmers_no[Q][seq2])
+                    similarity = no_shared_kmers / smallest_kmers_no
+                    similarity *= 100
+                    record = f"{seq1}\t{seq2}\t{no_shared_kmers}\t{similarity:.2f}\n"
+                    tsv.write(record)
+
 
     def export_superColors(self, prefix, Q, method="json"):
         """superColors table exporting
@@ -114,7 +175,6 @@ class virtualQs:
         virtualQs_count_file_name = prefix + "_Q" + str(Q) + "_counts" + suffix
 
         if method == "pickle":
-            print("writing virtual Q %d pickles ..." % Q)
             with open(virtualQs_file_name, "wb") as f:
                 pickle.dump(self.superColors[Q], f, pickle.HIGHEST_PROTOCOL)
 
@@ -278,6 +338,14 @@ def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, outpu
     # Save all Qs to files.
     for Q in range(_params["minQ"], _params["maxQ"] + 1, _params["stepQ"]):
         VQ.export_superColors(output_prefix, Q, output_type)
+
+    # Construct pairwise matrices
+    for Q in range(_params["minQ"], _params["maxQ"] + 1, _params["stepQ"]):
+        VQ.pairwise(Q)
+
+    # export pairwise matrices
+    for Q in range(_params["minQ"], _params["maxQ"] + 1, _params["stepQ"]):
+        VQ.export_pairwise(output_prefix, Q)
 
 
 def main():
