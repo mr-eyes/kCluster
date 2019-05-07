@@ -1,3 +1,6 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
 from __future__ import division
 import kProcessor as kp
 import itertools
@@ -33,6 +36,14 @@ class virtualQs:
         if self.__kSize is None:
             print("error loading the index", file = sys.stderr)
             sys.exit(1)
+
+        # Convert colors to IDs
+        self.color_to_ids = {}
+        with open(index_file_path + "colors.intvectors", 'r') as colors:
+            next(colors)  # skip the first line (Number of colors)
+            for line in colors:
+                values = list(map(int, line.strip().split()))
+                self.color_to_ids[values[0]] = values[2:]
 
     def __mask(self, Q):
         """create a bit mask given kmer size and Q value."""
@@ -92,14 +103,17 @@ class virtualQs:
             self.seq_to_kmers_no[Q] = {}
 
     def pairwise(self, Q):
-        #print(f"Generating pairwise for Q{Q:02d}")
         """pairwise similarity matrix construction
+
+        Args:
+            Q (int): Q value for the pairwise matrix construction.
 
         """
 
-        for color, tr_ids in self.superColors[Q].items():
+        for color, colors in self.superColors[Q].items():
+            tr_ids = list({i for c in colors for i in self.color_to_ids[c]})
             color_count = self.superColorsCount[Q][color]
-            #print(f"color: {color}, color_count: {color_count}, tr_ids: {str(tr_ids)}")
+            # print(f"[Q{Q:02d}] color: {color}, colors: {str(colors)}, tr_ids: {str(tr_ids)}")
             
             # For loop to calculate number of kmers per seq_id
             for tr_id in tr_ids:
@@ -124,8 +138,12 @@ class virtualQs:
                     self.edges[Q][_seq1] = {_seq2: color_count}
     
     def export_pairwise(self, prefix, Q):
+        
         """pairwise similarity matrix exporting as TSV file
 
+        Args:
+            prefix (str): exported file name prefix.
+            Q (int): Q value for the pairwise matrix construction.
 
         """
                 
@@ -136,13 +154,10 @@ class virtualQs:
         pairwise_file_name = f"{prefix}_Q{Q:02d}_pairwise.tsv"
 
         with open(pairwise_file_name, "w") as tsv:
-            tsv.write("seq_1\tseq_2\tshared_kmers\tsimilarity%\n")
+            tsv.write("seq_1\tseq_2\tshared_kmers\n")
             for seq1, info in self.edges[Q].items():
                 for seq2, no_shared_kmers in info.items():
-                    smallest_kmers_no = min(self.seq_to_kmers_no[Q][seq1], self.seq_to_kmers_no[Q][seq2])
-                    similarity = no_shared_kmers / smallest_kmers_no
-                    similarity *= 100
-                    record = f"{seq1}\t{seq2}\t{no_shared_kmers}\t{similarity:.2f}\n"
+                    record = f"{seq1}\t{seq2}\t{no_shared_kmers}\n"
                     tsv.write(record)
 
 
@@ -220,7 +235,7 @@ class virtualQs:
         return kmer_str
 
 
-def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, output_type, force_write=True):
+def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, output_type = None, force_write = True):
     VQ = virtualQs(index_file_path=index_prefix)
     VQ.set_params(minQ=min_q, maxQ=max_q, stepQ=step_q)
 
@@ -264,9 +279,7 @@ def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, outpu
                 # If yes: increment the count to one
                 # If No:  Insert the new superColor and set the count to 1
                 if super_color_id not in VQ.superColors[Q]:
-
                     VQ.superColors[Q][super_color_id] = list(set(VQ.temp_superColors[Q]))
-
                     VQ.superColorsCount[Q][super_color_id] = 1
 
                 else:
@@ -275,8 +288,10 @@ def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, outpu
 
                 VQ.temp_superColors[Q] = [curr_kmer_color]
 
-        #print(superColors[1])
-        #print("+++++++++++++++++++++++++++++++++++++++++++++++")
+        # print(f"supercolors[{Q}]: {str(VQ.superColors[Q])}")
+        # print(f"tempSupercolors[{Q}]: {str(VQ.temp_superColors[Q])}")
+        # print(f"SupercolorsCount[{Q}]: {str(VQ.superColorsCount[Q])}")
+        # print("+++++++++++++++++++++++++++++++++++++++++++++++")
 
         prev_kmer = curr_kmer
         prev_kmer_color = curr_kmer_color
@@ -323,21 +338,10 @@ def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, outpu
 
     _params = VQ.get_params
 
-    # Convert colors to IDs
-    color_to_ids = {}
-    with open(index_prefix + "colors.intvectors", 'r') as colors:
-        next(colors)  # skip the first line (Number of colors)
-        for line in colors:
-            values = list(map(int, line.strip().split()))
-            color_to_ids[values[0]] = values[2:]
-    
-    for Q in range(_params["minQ"], _params["maxQ"] + 1, _params["stepQ"]):
-        for superColor, colors in VQ.superColors[Q].items():
-            VQ.superColors[Q][superColor] = list({i for c in colors for i in color_to_ids[c]})
-
     # Save all Qs to files.
-    for Q in range(_params["minQ"], _params["maxQ"] + 1, _params["stepQ"]):
-        VQ.export_superColors(output_prefix, Q, output_type)
+    if output_type:
+        for Q in range(_params["minQ"], _params["maxQ"] + 1, _params["stepQ"]):
+            VQ.export_superColors(output_prefix, Q, output_type)
 
     # Construct pairwise matrices
     for Q in range(_params["minQ"], _params["maxQ"] + 1, _params["stepQ"]):
@@ -367,7 +371,7 @@ def main():
                         help='force rewrite the written virtualQs files --optional')
 
     parser.add_argument('-e', action='store', dest='output_type',
-                        help='output type <json|pickle> default:json --optional')
+                        help='colors output type <json|pickle> default:json --optional')
 
     parser.add_argument('-o', action='store', dest='output_prefix',
                         help='virtualQs output files prefix <str> --optional')
@@ -416,7 +420,7 @@ def main():
     if args.output_type:
         output_type = args.output_type
     else:
-        output_type = "json"
+        output_type = None
 
     construct_virtualQs(minQ, maxQ, stepQ, index_file_path,
                         output_prefix, output_type)
