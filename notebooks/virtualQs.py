@@ -414,8 +414,7 @@ def main():
     if args.output_prefix:
         output_prefix = args.output_prefix
     else:
-        from random import randint as rint
-        output_prefix = str(rint(1, 100))
+        output_prefix = args.index_prefix
 
     if args.output_type:
         output_type = args.output_type
