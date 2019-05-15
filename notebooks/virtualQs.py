@@ -16,15 +16,15 @@ import sqlite3
 # TODO use logging instead of normal prints.
 # TODO use Collections:Defaultdict for optimized performance.
 # TODO use NUMBA for optimizing maths and loops
+# TODO check best practices for sqlite for enhancements
+# TODO refactor the whole code to multiple classes
+# TODO use click instead of argparse
 
 class virtualQs:
     """Holds the superColors and superColorsCount tables."""
 
     __kSize = None
     overwrite = False
-
-
-
 
     def __init__(self, index_file_path: str):
         """VirtualQs class constructor.
@@ -50,11 +50,12 @@ class virtualQs:
                 values = list(map(int, line.strip().split()))
                 self.color_to_ids[values[0]] = values[2:]
 
+
     def __mask(self, Q):
         """create a bit mask given kmer size and Q value."""
         return (~(-1 << Q*2)) << (self.__kSize*2 - Q*2)
 
-    def set_params(self, minQ: int, maxQ: int, stepQ: int = 2):
+    def set_params(self, minQ: int, maxQ: int, stepQ: int):
         """virtualQs parameters setting.
 
         Args:
@@ -75,8 +76,8 @@ class virtualQs:
         else:
             self.__maxQ = maxQ
 
-        if(minQ < 1):
-            print("*WARNING* minQ shouldn't be less than 1, auto reinitializing minQ to 5", file=sys.stderr)
+        if(minQ < 5):
+            print("*WARNING* minQ shouldn't be less than 5, auto reinitializing minQ to 5", file=sys.stderr)
             self.__minQ = 5
         elif minQ > self.__maxQ:
             print("*WARNING* minQ shouldn't exceed the maxQ, auto reinitializing minQ to maxQ", file=sys.stderr)
@@ -125,14 +126,20 @@ class virtualQs:
 
 
     def set_mainQs(self, Qs):
+        """
+        set the main Qs values that will be processed.
+        """
         self.mainQs = [int(Q.split("_")[1]) for Q in Qs]
 
 
     def calculate_kmers_number(self):
-        #Calculating number of kmers of each sequences
-        for color, colors in self.superColors[self.kSize].items():
+        """
+        Calculating number of kmers of each sequences
+        """
+
+        for super_color, colors in self.superColors[self.kSize].items():
             tr_ids = list({i for c in colors for i in self.color_to_ids[c]})
-            color_count = self.superColorsCount[self.kSize][color]
+            color_count = self.superColorsCount[self.kSize][super_color]
 
             # For loop to calculate number of kmers per seq_id
             for tr_id in tr_ids:
@@ -143,11 +150,8 @@ class virtualQs:
 
 
     def pairwise(self):
-        """pairwise similarity matrix construction
-
-        Args:
-            Q (int): Q value for the pairwise matrix construction.
-
+        """
+        pairwise similarity matrix construction for all main Qs
         """
 
         # Calculating number of kmers per each sequence
@@ -158,8 +162,6 @@ class virtualQs:
             for color, colors in self.superColors[Q].items():
                 tr_ids = list({i for c in colors for i in self.color_to_ids[c]})
                 color_count = self.superColorsCount[Q][color]
-                #print(f"[Q{Q:02d}] color: {color}, colors: {str(colors)}, tr_ids: {str(tr_ids)}")
-                
             
                 for combination in itertools.combinations(tr_ids, 2):
                     _seq1 = combination[0]
@@ -177,10 +179,22 @@ class virtualQs:
 
 
     def sqlite_table_exists(self, table_name):
+        """Check if the sqlite table exists
+        Args:
+            table_name (str): table name to be checked.
+        Returns:
+            boolean value, True for existance.
+        """
+
         res = self.conn.execute(f"SELECT count(name) FROM sqlite_master WHERE type='table' AND name='{table_name}'")
         return bool(res.fetchone()[0]==1)
 
     def sqlite_getQs(self):
+        """get all the Qs values in the database
+        Returns:
+            set of table Qs values.
+        """
+
         gold_names = {'ID', 'seq1', 'seq2', 'min_kmers'}
         cursor = self.conn.execute('select * from virtualQs')
         cols_names = set(map(lambda x: x[0], cursor.description))
@@ -190,6 +204,16 @@ class virtualQs:
             return cols_names - gold_names
 
     def sqlite_getOldQs(self, duplicateQs):
+        """
+        fetch the Qs names for previously cached Qs and duplicate Qs that will be replaced.
+
+        Args:
+            duplicateQs (list): list of duplicate Qs between user predefined Qs and Qs stored in the database.
+        
+        Returns:
+            List of new Qs values.
+
+        """
         sqliteQs = self.sqlite_getQs()
         cachedQs = dict()
         result = dict()
@@ -256,7 +280,7 @@ class virtualQs:
         _Qs = sorted(_Qs)
 
         for Q in _Qs:
-            self.conn.execute(f"ALTER TABLE virtualQs ADD COLUMN Q_{Q} INT;")
+            self.conn.execute(f"ALTER TABLE virtualQs ADD COLUMN Q_{Q} INT DEFAULT 0 NOT NULL;")
         
         self.conn.commit()
     
@@ -364,24 +388,6 @@ class virtualQs:
             self.conn.execute("ALTER TABLE virtualQs_backup RENAME TO virtualQs;")
 
         self.conn.commit()
-            
-
-        # for seq_pair, Qs in self.edges.items():
-        #     print(seq_pair)
-        #     print(Qs)
-        #     print("----------------------")
-
-            
-
-
-            
-
-        # for seq1, info in self.edges[Q].items():
-        #     for seq2, no_shared_kmers in info.items():
-        #         smallest_kmers_no = min(self.seq_to_kmers_no[Q][seq1], self.seq_to_kmers_no[Q][seq2])
-        #         record = f"{seq1}\t{seq2}\t{no_shared_kmers}\n"
-
-
 
     def export_superColors(self, prefix, Q, method="json"):
         """superColors table exporting
@@ -484,10 +490,6 @@ def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, outpu
             if matched:
                 VQ.temp_superColors[Q] += [prev_kmer_color, curr_kmer_color]
 
-                # print("Matching Q%d %s & %s | TRUE | [prevC:%d, currC=%d]" % (Q, VQ.int_to_str(
-                #     prev_kmer, VQ.kSize), VQ.int_to_str(curr_kmer, VQ.kSize), prev_kmer_color, curr_kmer_color))
-
-
             else:
                 VQ.temp_superColors[Q].append(prev_kmer_color)
                 super_color_id = VQ.create_super_color(VQ.temp_superColors[Q])
@@ -501,18 +503,14 @@ def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, outpu
                 # If No:  Insert the new superColor and set the count to 1
                 if super_color_id not in VQ.superColors[Q]:
                     VQ.superColors[Q][super_color_id] = list(set(VQ.temp_superColors[Q]))
-                    VQ.superColorsCount[Q][super_color_id] = 1
+                    VQ.superColorsCount[Q][super_color_id] = 1  
 
                 else:
                     # IF the supercolor already exist, just increment it
                     VQ.superColorsCount[Q][super_color_id] += 1
 
-                VQ.temp_superColors[Q] = [curr_kmer_color]
 
-        # print(f"supercolors[{Q}]: {str(VQ.superColors[Q])}")
-        # print(f"tempSupercolors[{Q}]: {str(VQ.temp_superColors[Q])}")
-        # print(f"SupercolorsCount[{Q}]: {str(VQ.superColorsCount[Q])}")
-        # print("+++++++++++++++++++++++++++++++++++++++++++++++")
+                VQ.temp_superColors[Q] = [curr_kmer_color]
 
         prev_kmer = curr_kmer
         prev_kmer_color = curr_kmer_color
@@ -533,29 +531,6 @@ def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, outpu
         else:
             # IF the supercolor already exist, just increment it
             VQ.superColorsCount[Q][super_color_id] += 1
-
-    # print("SUPER COLORS")
-
-    # print(json.dumps(VQ.superColors, sort_keys=True, indent=4, separators=(',', ': ')))
-    # print("\n--------------------------------\n\n")
-    # print("SUPER COLORS COUNT")
-    # print(json.dumps(VQ.superColorsCount, sort_keys=True,
-    #                 indent=4, separators=(',', ': ')))
-    # print("\n--------------------------------\n\n")
-    # print("TEMP SUPER COLORS")
-    # print(json.dumps(VQ.temp_superColors, sort_keys=True,
-    #                 indent=4, separators=(',', ': ')))
-    # print("\n--------------------------------\n\n")
-
-    # print(VQ.superColors)
-
-    # print("\n--------------------------------\n\n")
-    # print("\n--------------------------------\n\n")
-    # print("\n--------------------------------\n\n")
-    # print("\n--------------------------------\n\n")
-
-    # print(VQ.superColorsCount)
-    # Construct pairwise matrices
 
 
     # Save all Qs to files.
