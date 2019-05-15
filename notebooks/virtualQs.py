@@ -11,6 +11,7 @@ import argparse
 import sys
 import os
 import pickle
+import sqlite3
 
 # TODO use logging instead of normal prints.
 # TODO use Collections:Defaultdict for optimized performance.
@@ -20,6 +21,9 @@ class virtualQs:
     """Holds the superColors and superColorsCount tables."""
 
     __kSize = None
+    overwrite = False
+
+
 
 
     def __init__(self, index_file_path: str):
@@ -27,6 +31,7 @@ class virtualQs:
 
         Args:
             index_file_name (string): coloredKDataFrame index file.
+            output_prefix (string): prefix for the output files(s)
 
         """
 
@@ -85,6 +90,13 @@ class virtualQs:
         else:
             self.__stepQ = stepQ
 
+        
+    
+    def prepare(self):
+        """
+        prepare masks and initialize data structure for the generating the virtualQs
+        """
+
         self.superColors = {}
         self.temp_superColors = {}
         self.superColorsCount = {}
@@ -94,15 +106,43 @@ class virtualQs:
 
         # Determine minQ and maxQ and get list of masks & superColorsDIct initialization
         # for Q in range(maxQ, minQ-1, -stepQ):
-        for Q in range(self.__minQ, self.__maxQ + 1, self.__stepQ):
+        for Q in self.mainQs:
             self.__masks[Q] = self.__mask(Q)
             self.superColors[Q] = {}
             self.superColorsCount[Q] = {}
             self.temp_superColors[Q] = []
-            self.edges[Q] = {}
-            self.seq_to_kmers_no[Q] = {}
 
-    def pairwise(self, Q):
+        """
+        Must consider Q=kSize for calculation of actual kmer size.
+        Adding it manually and creating a mask for it. 
+        """
+
+        if self.kSize not in self.masks:
+            self.__masks[self.kSize] = self.__mask(self.kSize)
+            self.superColors[self.kSize] = {}
+            self.superColorsCount[self.kSize] = {}
+            self.temp_superColors[self.kSize] = []
+
+
+    def set_mainQs(self, Qs):
+        self.mainQs = [int(Q.split("_")[1]) for Q in Qs]
+
+
+    def calculate_kmers_number(self):
+        #Calculating number of kmers of each sequences
+        for color, colors in self.superColors[self.kSize].items():
+            tr_ids = list({i for c in colors for i in self.color_to_ids[c]})
+            color_count = self.superColorsCount[self.kSize][color]
+
+            # For loop to calculate number of kmers per seq_id
+            for tr_id in tr_ids:
+                if tr_id not in self.seq_to_kmers_no:
+                    self.seq_to_kmers_no[tr_id] = color_count
+                else:
+                    self.seq_to_kmers_no[tr_id] += color_count
+
+
+    def pairwise(self):
         """pairwise similarity matrix construction
 
         Args:
@@ -110,35 +150,199 @@ class virtualQs:
 
         """
 
-        for color, colors in self.superColors[Q].items():
-            tr_ids = list({i for c in colors for i in self.color_to_ids[c]})
-            color_count = self.superColorsCount[Q][color]
-            # print(f"[Q{Q:02d}] color: {color}, colors: {str(colors)}, tr_ids: {str(tr_ids)}")
-            
-            # For loop to calculate number of kmers per seq_id
-            for tr_id in tr_ids:
-                if tr_id not in self.seq_to_kmers_no[Q]:
-                    self.seq_to_kmers_no[Q][tr_id] = color_count
-                else:
-                    self.seq_to_kmers_no[Q][tr_id] += color_count
-            
-            #print(f"seq_to_kmers: {str(self.seq_to_kmers_no[Q])}")
+        # Calculating number of kmers per each sequence
+        self.calculate_kmers_number()
 
-            for combination in itertools.combinations(tr_ids, 2):
-                _seq1 = combination[0]
-                _seq2 = combination[1]
+        # Calculating pairwise distance
+        for Q in self.mainQs:
+            for color, colors in self.superColors[Q].items():
+                tr_ids = list({i for c in colors for i in self.color_to_ids[c]})
+                color_count = self.superColorsCount[Q][color]
+                #print(f"[Q{Q:02d}] color: {color}, colors: {str(colors)}, tr_ids: {str(tr_ids)}")
+                
+            
+                for combination in itertools.combinations(tr_ids, 2):
+                    _seq1 = combination[0]
+                    _seq2 = combination[1]
 
-                if _seq1 in self.edges[Q]:
-                    if _seq2 in self.edges[Q][_seq1]:
-                        self.edges[Q][_seq1][_seq2] += color_count
+                    seq_pair = tuple(sorted((_seq1, _seq2)))
+                    if seq_pair not in self.edges:
+                        self.edges[seq_pair] = dict()
+                        self.edges[seq_pair][Q] = color_count
                     else:
-                        self.edges[Q][_seq1][_seq2] = color_count
+                        if Q not in self.edges[seq_pair]:
+                            self.edges[seq_pair][Q] = color_count
+                        else:
+                            self.edges[seq_pair][Q] += color_count
 
-                else:
-                    self.edges[Q][_seq1] = {_seq2: color_count}
-    
-    def export_pairwise(self, prefix, Q):
+
+    def sqlite_table_exists(self, table_name):
+        res = self.conn.execute(f"SELECT count(name) FROM sqlite_master WHERE type='table' AND name='{table_name}'")
+        return bool(res.fetchone()[0]==1)
+
+    def sqlite_getQs(self):
+        gold_names = {'ID', 'seq1', 'seq2', 'min_kmers'}
+        cursor = self.conn.execute('select * from virtualQs')
+        cols_names = set(map(lambda x: x[0], cursor.description))
+        if len(gold_names.intersection(cols_names)) != 4:
+            return False
+        else:
+            return cols_names - gold_names
+
+    def sqlite_getOldQs(self, duplicateQs):
+        sqliteQs = self.sqlite_getQs()
+        cachedQs = dict()
+        result = dict()
         
+        cached_before = [Q.replace("cached_","") for Q in sqliteQs if "cached" in Q]
+
+        for Q in cached_before:
+            _Q = Q.split("_")
+            key = f"{_Q[0]}_{_Q[1]}"
+
+            if key not in duplicateQs:
+                continue
+
+            count = int(_Q[-1])
+
+            if key not in cachedQs:
+                cachedQs[key] = count
+            else:
+                if count > cachedQs[key]:
+                    cachedQs[key] = count
+        
+        for Q in duplicateQs:
+            if Q in cachedQs:
+                result[Q] = cachedQs[Q] + 1
+            else:
+                result[Q] = 0
+
+        return result
+
+    def _sqlite_insert(self):
+        for seq_pair, Qs in self.edges.items():
+            seq1 = seq_pair[0]
+            seq2 = seq_pair[1]
+            min_kmers = min(self.seq_to_kmers_no[seq1], self.seq_to_kmers_no[seq2])
+            Qs_cols = ", ".join([f"Q_{Q}" for Q in Qs])
+            Qs_vals = ", ".join([f"{Q}" for Q in Qs.values()])
+            self.conn.execute(f"INSERT INTO virtualQs (seq1, seq2, min_kmers, {Qs_cols}) VALUES ({seq1}, {seq2}, {min_kmers}, {Qs_vals})")
+
+    def _sqlite_update(self):
+        for seq_pair, Qs in self.edges.items():
+            seq1 = seq_pair[0]
+            seq2 = seq_pair[1]
+            new_values = [f"Q_{Q}={val}" for Q, val in Qs.items()]
+            new_values = ", ".join(new_values)
+            self.conn.execute(f"UPDATE virtualQs SET {new_values} WHERE seq1={seq1} AND seq2={seq2}")
+
+
+    def sqlite_dropQs(self, duplicateQs):
+        # Until now, sqlite does not support dropping columns.
+        # So, I cache the Qs by changing their names.
+
+        cachedQs = self.sqlite_getOldQs(duplicateQs)
+        for Q in duplicateQs:
+            new_value = f"cached_{Q}_{cachedQs[Q]}"
+            self.conn.execute(f"ALTER TABLE virtualQs RENAME COLUMN {Q} TO {new_value};")   
+
+        self.conn.commit()
+
+
+    def sqlite_createQs(self, Qs):
+        # Qs is a list of {Qn,Qn+1, ...}
+        
+        _Qs = [int(Q.split("_")[1]) for Q in Qs]
+        _Qs = sorted(_Qs)
+
+        for Q in _Qs:
+            self.conn.execute(f"ALTER TABLE virtualQs ADD COLUMN Q_{Q} INT;")
+        
+        self.conn.commit()
+    
+
+    def sqlite_initiate(self, prefix, force_write = False, backup = False):
+        self.force_write = force_write
+        self.backup = backup
+
+        database_path = prefix + "_kCluster.sqlite"
+        db_exist = os.path.isfile(database_path)
+        self.conn = sqlite3.connect(database_path)
+        
+        # Get user Qs
+        self.cursor = self.conn.cursor()
+        userQs = {f"Q_{i}" for i in range(self._virtualQs__minQ, self._virtualQs__maxQ + 1, self._virtualQs__stepQ)}
+
+        # Database file exists        
+        if db_exist:
+
+            # If the table does not exist
+            if not self.sqlite_table_exists("virtualQs"):
+                
+                # Setting the main insertion function to insert
+                self.sqlite_insert = self._sqlite_insert
+                
+                # IF table does not exist, create it.
+                self.conn.execute('''CREATE TABLE virtualQs
+        (ID INTEGER PRIMARY KEY AUTOINCREMENT,
+         seq1            INT     NOT NULL,
+         seq2            INT     NOT NULL,
+         min_kmers       INT     NOT NULL);''')
+         
+                
+            # Table exists, validate the columns
+            else:
+                # Scan the table
+                sqliteQs = self.sqlite_getQs()
+
+                # There are no Qs.
+                if not sqliteQs:
+                    print("sqlite db file is corrupted.", file = sys.stderr)
+                    sys.exit(1)
+                
+                else:
+                    # Qs found
+                    
+                    # Setting the main insertion function to update
+                    self.sqlite_insert = self._sqlite_update
+                    
+                    # User has enabled force write to over-write the Qs.
+                    if self.force_write:
+                        missingQs = userQs - sqliteQs
+                        duplicated = userQs.intersection(sqliteQs)
+                        self.sqlite_dropQs(duplicated)
+                        self.sqlite_createQs(userQs)
+                        self.set_mainQs(userQs)
+                        if len(duplicated):
+                            self.overwrite = True
+                        
+                    
+                    else:
+                        missingQs = userQs - sqliteQs
+                        self.sqlite_createQs(missingQs)
+                        self.set_mainQs(missingQs)
+    
+
+        # Database does not exist at all
+        else:
+            #print("database does not exist, creating..")
+            
+            # setting the main insertion function to insert
+            self.sqlite_insert = self._sqlite_insert
+            # IF table does not exist, create it.
+
+            self.conn.execute('''CREATE TABLE virtualQs
+        (ID INTEGER PRIMARY KEY AUTOINCREMENT,
+         seq1            INT     NOT NULL,
+         seq2            INT     NOT NULL,
+         min_kmers       INT     NOT NULL);''')
+            self.sqlite_createQs(userQs)
+            self.set_mainQs(userQs)
+
+        self.conn.commit()
+        self.prepare()
+
+    def export_pairwise(self):
         """pairwise similarity matrix exporting as TSV file
 
         Args:
@@ -146,19 +350,37 @@ class virtualQs:
             Q (int): Q value for the pairwise matrix construction.
 
         """
-                
-        if Q not in self.superColors and Q not in self.superColorsCount:
-            print("virtualQ: {} does not exist".format(Q), file=sys.stderr)
-            sys.exit(1)
-        
-        pairwise_file_name = f"{prefix}_Q{Q:02d}_pairwise.tsv"
 
-        with open(pairwise_file_name, "w") as tsv:
-            tsv.write("seq_1\tseq_2\tshared_kmers\n")
-            for seq1, info in self.edges[Q].items():
-                for seq2, no_shared_kmers in info.items():
-                    record = f"{seq1}\t{seq2}\t{no_shared_kmers}\n"
-                    tsv.write(record)
+        self.sqlite_insert()
+        
+        if not self.backup and self.overwrite:
+            Qs = [Q for Q in self.sqlite_getQs() if Q[0]=="Q"]
+            gold_names = ['ID', 'seq1', 'seq2', 'min_kmers']
+            preserved_Qs = gold_names + Qs
+            Qs_columns = ", ".join(preserved_Qs)
+
+            self.conn.execute(f"CREATE TABLE virtualQs_backup AS SELECT {Qs_columns} FROM virtualQs;")
+            self.conn.execute("DROP TABLE virtualQs;")
+            self.conn.execute("ALTER TABLE virtualQs_backup RENAME TO virtualQs;")
+
+        self.conn.commit()
+            
+
+        # for seq_pair, Qs in self.edges.items():
+        #     print(seq_pair)
+        #     print(Qs)
+        #     print("----------------------")
+
+            
+
+
+            
+
+        # for seq1, info in self.edges[Q].items():
+        #     for seq2, no_shared_kmers in info.items():
+        #         smallest_kmers_no = min(self.seq_to_kmers_no[Q][seq1], self.seq_to_kmers_no[Q][seq2])
+        #         record = f"{seq1}\t{seq2}\t{no_shared_kmers}\n"
+
 
 
     def export_superColors(self, prefix, Q, method="json"):
@@ -186,8 +408,8 @@ class virtualQs:
             print("export only in [pickle,json]", file=sys.stderr)
             sys.exit(1)
 
-        virtualQs_file_name = prefix + "_Q" + str(Q) + suffix
-        virtualQs_count_file_name = prefix + "_Q" + str(Q) + "_counts" + suffix
+        virtualQs_file_name = prefix + "_K" + str(self.kSize) + "_Q" + str(Q) + suffix
+        virtualQs_count_file_name = prefix + "_K" + str(self.kSize) + "_Q" + str(Q) + "_counts" + suffix
 
         if method == "pickle":
             with open(virtualQs_file_name, "wb") as f:
@@ -235,11 +457,10 @@ class virtualQs:
         return kmer_str
 
 
-def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, output_type = None, force_write = True):
+def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, output_type = None, force_write = True, backup = False):
     VQ = virtualQs(index_file_path=index_prefix)
     VQ.set_params(minQ=min_q, maxQ=max_q, stepQ=step_q)
-
-    #print("Constructing virtualQs with params: ", VQ.get_params, file = sys.stderr)
+    VQ.sqlite_initiate(output_prefix, force_write, backup)
 
     it = VQ.kf.begin()
     prev_kmer = it.getHashedKmer()
@@ -334,22 +555,23 @@ def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, outpu
     # print("\n--------------------------------\n\n")
 
     # print(VQ.superColorsCount)
+    # Construct pairwise matrices
 
-
-    _params = VQ.get_params
 
     # Save all Qs to files.
     if output_type:
-        for Q in range(_params["minQ"], _params["maxQ"] + 1, _params["stepQ"]):
+        _dir_name = os.path.dirname(output_prefix) 
+        if not os.path.isdir(_dir_name):
+            os.mkdir(_dir_name)
+
+        for Q in VQ.mainQs:
             VQ.export_superColors(output_prefix, Q, output_type)
 
-    # Construct pairwise matrices
-    for Q in range(_params["minQ"], _params["maxQ"] + 1, _params["stepQ"]):
-        VQ.pairwise(Q)
-
+    # Construct pairwise matrices    
+    VQ.pairwise()
+    
     # export pairwise matrices
-    for Q in range(_params["minQ"], _params["maxQ"] + 1, _params["stepQ"]):
-        VQ.export_pairwise(output_prefix, Q)
+    VQ.export_pairwise()
 
 
 def main():
@@ -368,7 +590,10 @@ def main():
                         help='Q step <int>')
 
     parser.add_argument('-f', action='store', dest='force',
-                        help='force rewrite the written virtualQs files --optional')
+                        help='force rewrite the written virtualQs files <int> --optional')
+
+    parser.add_argument('-b', action='store', dest='backup',
+                        help='set to 1 for backing up old Qs <int> --optional')
 
     parser.add_argument('-e', action='store', dest='output_type',
                         help='colors output type <json|pickle> default:json --optional')
@@ -421,8 +646,18 @@ def main():
     else:
         output_type = None
 
+    if args.force:
+        force = True
+    else:
+        force = False
+
+    if args.backup:
+        backup_flag = True
+    else:
+        backup_flag = False
+
     construct_virtualQs(minQ, maxQ, stepQ, index_file_path,
-                        output_prefix, output_type)
+                        output_prefix, output_type, force, backup_flag)
 
 
 if __name__ == '__main__':
