@@ -26,7 +26,7 @@ class virtualQs:
     __kSize = None
     overwrite = False
 
-    def __init__(self, index_file_path: str):
+    def __init__(self, index_prefix: str):
         """VirtualQs class constructor.
 
         Args:
@@ -35,16 +35,18 @@ class virtualQs:
 
         """
 
-        self.kf = kp.kDataFrame.load(index_file_path)
+        self.kf = kp.kDataFrame.load(index_prefix)
         self.__kSize = self.kf.getkSize()
 
+        self.index_prefix = index_prefix
+        
         if self.__kSize is None:
             print("error loading the index", file = sys.stderr)
             sys.exit(1)
 
         # Convert colors to IDs
         self.color_to_ids = {}
-        with open(index_file_path + "colors.intvectors", 'r') as colors:
+        with open(index_prefix + "colors.intvectors", 'r') as colors:
             next(colors)  # skip the first line (Number of colors)
             for line in colors:
                 values = list(map(int, line.strip().split()))
@@ -284,8 +286,50 @@ class virtualQs:
         
         self.conn.commit()
     
+    def sqlite_create_tables(self):
+        """Create virtualQs and meta_info tables"""
+        
+        # Create virtualQs table
+        self.conn.execute('''CREATE TABLE virtualQs
+        (ID INTEGER PRIMARY KEY AUTOINCREMENT,
+         seq1            INT     NOT NULL,
+         seq2            INT     NOT NULL,
+         min_kmers       INT     NOT NULL);''')
+
+        # Create meta information table
+        self.conn.execute('''CREATE TABLE meta_info
+                            (ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                            key              TEXT     NOT NULL,
+                            value            INT     NOT NULL);''')
+        
+        # Just insert the kSize
+        self.conn.execute(f"INSERT OR IGNORE INTO meta_info (key, value) VALUES ('kSize', {self.kSize})")
+
+    def sqlite_import_namesmap(self):
+        """Import kProcessor namesmap file in the sqlite database"""
+        
+        self.conn.execute('''CREATE TABLE namesmap
+                            (ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                             seq_id     INT     NOT NULL,
+                             seq_name   TEXT    NOT NULL);''')
+        
+        with open(self.index_prefix + ".namesMap", 'r') as namesmap:
+            next(namesmap)
+            for record in namesmap:
+                record = record.strip().split(" ")
+                seq_id = record[0]
+                seq_name = record[1]
+
+                self.conn.execute(f"INSERT INTO namesmap (seq_id, seq_name) VALUES ({seq_id}, '{seq_name}')")
+
 
     def sqlite_initiate(self, prefix, force_write = False, backup = False):
+        """Initialize the Sqlite database for the processing.
+        Args:
+            prefix (str): database file name prefix.
+            force_write (bool): boolean flag to allow or disallow force write.
+            backup (bool): boolean flag to allow ir disallow backing up overwritten Qs.
+        """
         self.force_write = force_write
         self.backup = backup
 
@@ -307,11 +351,10 @@ class virtualQs:
                 self.sqlite_insert = self._sqlite_insert
                 
                 # IF table does not exist, create it.
-                self.conn.execute('''CREATE TABLE virtualQs
-        (ID INTEGER PRIMARY KEY AUTOINCREMENT,
-         seq1            INT     NOT NULL,
-         seq2            INT     NOT NULL,
-         min_kmers       INT     NOT NULL);''')
+                self.sqlite_create_tables()
+                
+                # Import namesMap file
+                self.sqlite_import_namesmap()
          
                 
             # Table exists, validate the columns
@@ -355,11 +398,11 @@ class virtualQs:
             self.sqlite_insert = self._sqlite_insert
             # IF table does not exist, create it.
 
-            self.conn.execute('''CREATE TABLE virtualQs
-        (ID INTEGER PRIMARY KEY AUTOINCREMENT,
-         seq1            INT     NOT NULL,
-         seq2            INT     NOT NULL,
-         min_kmers       INT     NOT NULL);''')
+            self.sqlite_create_tables()
+
+            # Import namesMap file
+            self.sqlite_import_namesmap()
+
             self.sqlite_createQs(userQs)
             self.set_mainQs(userQs)
 
@@ -464,7 +507,7 @@ class virtualQs:
 
 
 def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, output_type = None, force_write = True, backup = False):
-    VQ = virtualQs(index_file_path=index_prefix)
+    VQ = virtualQs(index_prefix=index_prefix)
     VQ.set_params(minQ=min_q, maxQ=max_q, stepQ=step_q)
     VQ.sqlite_initiate(output_prefix, force_write, backup)
 
