@@ -23,7 +23,29 @@ class kClusters:
             print(f"couldn't connect to {sqlite_file}", file = sys.stderr)
             sys.exit(1)
 
-        self.userQs = userQs
+        # Check user selected Qs
+        sqliteQs = [int(Q.split("_")[1]) for Q in self.sqlite_getQs()]
+        
+        if userQs == [-1]:
+            self.userQs = sqliteQs
+        else:
+            commonQs = set(userQs).intersection(set(sqliteQs))
+            ln_commonQs = len(commonQs)
+            ln_userQs = len(userQs)
+            
+            if not ln_commonQs:
+                print("invalid virtualQs range, none of them found in the sqlite database", file = sys.stderr)
+                sys.exit(1)
+            
+            elif ln_commonQs == ln_userQs:
+                self.userQs = userQs
+            
+            else:
+                unfound = set(userQs) - set(sqliteQs)
+                print(f"The following Qs {unfound} couldn't be found in the sqlite database, processing the others..", file = sys.stderr)
+                self.userQs = list(commonQs)
+            
+        
         self.cut_off_threshold = cut_off_threshold
         self.sqlite_file = sqlite_file
         self.kSize = self.conn.execute("SELECT value from meta_info WHERE key='kSize'").fetchone()[0]
@@ -35,6 +57,20 @@ class kClusters:
             new_cluster.append(self.names_map[id])
 
         return new_cluster
+
+    def sqlite_getQs(self):
+        """get all the Qs values in the database
+        Returns:
+            set of table Qs values.
+        """
+
+        gold_names = {'ID', 'seq1', 'seq2', 'min_kmers'}
+        cursor = self.conn.execute('select * from virtualQs')
+        cols_names = set(map(lambda x: x[0], cursor.description))
+        if len(gold_names.intersection(cols_names)) != 4:
+            return False
+        else:
+            return cols_names - gold_names
 
     def sqlite_get_namesmap(self):
         cursor = self.conn.execute("SELECT * FROM namesmap")
@@ -110,20 +146,32 @@ class kClusters:
             for cluster_id, (k, v) in enumerate(self.components.items(), 1):
                 kClusters.write(f"{cluster_id}\t{','.join(self.ids_to_names(v))}\n")
 
-        #print(f"Total Number Of Clusters: {cluster_id}", file = sys.stderr)
+        print(f"Total Number Of Clusters: {cluster_id}", file = sys.stderr)
 
 
 @click.command()
-@click.option('-m','--min-q', required=False, type=int, default = 0, help="minimum virtualQ")
-@click.option('-M','--max-q', required=False, type=int, default = 0, help="maximum virtualQ")
-@click.option('-s','--step-q', required=False, type=int, default = 2, help="virtualQs range step")
-@click.option('-c','--cutoff', required=False, type=click.FloatRange(0, 1, clamp=True) , default = 0.0, show_default=True, help="cluster sequences with (similarity > cutoff)")
-@click.option('-f', '--db', type=click.Path(exists=True), help="sqlite database file")
+@click.option('-m','--min-q', required=False, type=int, default = None, help="minimum virtualQ")
+@click.option('-M','--max-q', required=False, type=int, default = None, help="maximum virtualQ")
+@click.option('-s','--step-q', required=False, type=int, default = None, help="virtualQs range step")
+@click.option('-c','--cutoff', required=False, type=click.FloatRange(0, 1, clamp=False) , default = 0.0, show_default=True, help="cluster sequences with (similarity > cutoff)")
+@click.option('-d', '--db', required=True, type=click.Path(exists=True), help="sqlite database file")
 
 def main(min_q, max_q, step_q, db, cutoff):
     """This script performs sequences clustering regarding user-selected virtualQs with predefined threshold."""
 
-    userQs = [Q for Q in range(min_q, max_q + 1, step_q)]
+    scanQs = map(bool, [min_q, max_q, step_q])
+
+    if True in scanQs and False in scanQs:
+        print("Please complete the virtualQs range", file = sys.stderr)
+        exit(1)
+    
+    elif not(min_q and max_q and step_q):
+        print("processing all virtualQs in the sqlite database", file = sys.stderr)
+        userQs = [-1]
+    
+    else:
+        userQs = [Q for Q in range(min_q, max_q + 1, step_q)]
+    
     kCl = kClusters(db, userQs, cutoff)
     kCl.build_graph()
     kCl.clustering()
