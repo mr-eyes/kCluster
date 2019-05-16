@@ -3,22 +3,19 @@
 
 from __future__ import division
 import kProcessor as kp
-import itertools
-import random
-import hashlib
+from itertools import combinations
+from hashlib import md5
 import json
-import argparse
 import sys
 import os
 import pickle
 import sqlite3
+import click
 
 # TODO use logging instead of normal prints.
-# TODO use Collections:Defaultdict for optimized performance.
-# TODO use NUMBA for optimizing maths and loops
 # TODO check best practices for sqlite for enhancements
 # TODO refactor the whole code to multiple classes
-# TODO use click instead of argparse
+# TODO add validation callbacks for click
 
 class virtualQs:
     """Holds the superColors and superColorsCount tables."""
@@ -67,9 +64,9 @@ class virtualQs:
 
         """
 
-        if maxQ > self.__kSize:
+        if maxQ > self.__kSize or maxQ == -1:
             print(
-                "*WARNING* maxQ should't exceed the kmer Size, auto reinitializing Q with kSize %d" % (self.__kSize), file=sys.stderr)
+                "[INFO] auto reinitializing Q with kSize %d" % (self.__kSize), file=sys.stderr)
             self.__maxQ = self.__kSize
 
         elif maxQ is 0:
@@ -79,16 +76,16 @@ class virtualQs:
             self.__maxQ = maxQ
 
         if(minQ < 5):
-            print("*WARNING* minQ shouldn't be less than 5, auto reinitializing minQ to 5", file=sys.stderr)
+            print("[WARNING] minQ shouldn't be less than 5, auto reinitializing minQ to 5", file=sys.stderr)
             self.__minQ = 5
         elif minQ > self.__maxQ:
-            print("*WARNING* minQ shouldn't exceed the maxQ, auto reinitializing minQ to maxQ", file=sys.stderr)
+            print("[WARNING] minQ shouldn't exceed the maxQ, auto reinitializing minQ to maxQ", file=sys.stderr)
             self.__minQ = self.__maxQ
         else:
             self.__minQ = minQ
 
         if(stepQ < 1):
-            print("auto resetting Q step to 1", file=sys.stderr)
+            print("auto resetting Q step to 2", file=sys.stderr)
             self.__minQ = 1
         else:
             self.__stepQ = stepQ
@@ -165,7 +162,7 @@ class virtualQs:
                 tr_ids = list({i for c in colors for i in self.color_to_ids[c]})
                 color_count = self.superColorsCount[Q][color]
             
-                for combination in itertools.combinations(tr_ids, 2):
+                for combination in combinations(tr_ids, 2):
                     _seq1 = combination[0]
                     _seq2 = combination[1]
 
@@ -480,7 +477,7 @@ class virtualQs:
     # Take list of colors, sort it, and create a return a hash value
     @staticmethod
     def create_super_color(colors):
-        return hashlib.md5(str(sorted(list(set(colors)))).encode()).hexdigest()[:9]
+        return md5(str(sorted(list(set(colors)))).encode()).hexdigest()[:9]
 
     @property
     def get_params(self):
@@ -592,90 +589,30 @@ def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, outpu
     VQ.export_pairwise()
 
 
-def main():
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('-i', action='store', dest='index_prefix',
-                        help='index file prefix <str>')
-
-    parser.add_argument('-m', action='store', dest='minQ',
-                        help='minimum Q <int>')
-
-    parser.add_argument('-M', action='store', dest='maxQ',
-                        help='maximum Q <int>, 0 for Q=kSize')
-
-    parser.add_argument('-s', action='store', dest='stepQ',
-                        help='Q step <int>')
-
-    parser.add_argument('-f', action='store', dest='force',
-                        help='force rewrite the written virtualQs files <int> --optional')
-
-    parser.add_argument('-b', action='store', dest='backup',
-                        help='set to 1 for backing up old Qs <int> --optional')
-
-    parser.add_argument('-e', action='store', dest='output_type',
-                        help='colors output type <json|pickle> default:json --optional')
-
-    parser.add_argument('-o', action='store', dest='output_prefix',
-                        help='virtualQs output files prefix <str> --optional')
-
-    if len(sys.argv) is 1:
-        parser.print_help(sys.stderr)
+@click.command()
+@click.option('-m','--min-q', 'minQ', required=False, type=int, default = 5, show_default=True, help="minimum virtualQ")
+@click.option('-M','--max-q', 'maxQ', required=False, type=int, default = -1, help="maximum virtualQ")
+@click.option('-s','--step-q', 'stepQ', required=False, type=int, default = 2, show_default=True,  help="virtualQs range step")
+@click.option('-i', '--index-prefix', required=True, type=str, help="kProcessor index file prefix")
+@click.option('-o', '--output-prefix', required=False, type=str, default=None, help="virtualQs output file(s) prefix")
+@click.option('--force', is_flag=True, help="Overwrite the already proessed virtualQs")
+@click.option('--backup', is_flag=True, help="Back up old virtualQs")
+@click.option('--export-colors', required=False, type=click.Choice(['json', 'pickle']), default=None, help="export supercolors data [debugging purposes]")
+def main(minQ, maxQ, stepQ, index_prefix, output_prefix, force, backup, export_colors):
+    """
+    Generating pairwise matrices for single/multiple virtualQs minimum of 5 and maximum of kSize. 
+    """
+    if os.path.isfile(index_prefix + ".mqf"):
+        index_file_path = index_prefix
+    else:
+        print(f"Index prefix {index_prefix} Does not exist!", file = sys.stderr)
         sys.exit(1)
 
-    args = parser.parse_args()
-
-    if args.index_prefix:
-        if os.path.isfile(args.index_prefix + ".mqf"):
-            index_file_path = args.index_prefix
-        else:
-            print('Index prefix ' + args.index_prefix + ' Does not exist!', file = sys.stderr)
-            sys.exit(1)
-
-    else:
-        print("must provide index file prefix, use - i < index_file_prefix >", file=sys.stderr)
-        sys.exit(1)
-
-    if args.minQ:
-        minQ = int(args.minQ)
-    else:
-        print("must provide minimum Q, use -m <int>", file=sys.stderr)
-        sys.exit(1)
-
-    if args.maxQ:
-        maxQ = int(args.maxQ)
-    else:
-        print("must provide maximum Q, use -M <int>", file = sys.stderr)
-        sys.exit(1)
-
-    if args.stepQ:
-        stepQ = int(args.stepQ)
-    else:
-        print("must provide Q step, use -s <int>", file = sys.stderr)
-        sys.exit(1)
-
-    if args.output_prefix:
-        output_prefix = args.output_prefix
-    else:
-        output_prefix = args.index_prefix
-
-    if args.output_type:
-        output_type = args.output_type
-    else:
-        output_type = None
-
-    if args.force:
-        force = True
-    else:
-        force = False
-
-    if args.backup:
-        backup_flag = True
-    else:
-        backup_flag = False
+    if not output_prefix:
+        output_prefix = os.path.basename(index_prefix)
 
     construct_virtualQs(minQ, maxQ, stepQ, index_file_path,
-                        output_prefix, output_type, force, backup_flag)
+                        output_prefix, export_colors, force, backup)
 
 
 if __name__ == '__main__':
@@ -689,4 +626,4 @@ if __name__ == '__main__':
         ╚═╝  ╚═╝ ╚═════╝╚══════╝ ╚═════╝ ╚══════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝                                            
     \n\n""")
 
-    main()
+    main() # pylint: disable=no-value-for-parameter
