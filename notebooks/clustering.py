@@ -1,31 +1,33 @@
-from collections import Counter, defaultdict
+from __future__ import division
+from collections import defaultdict
 import itertools
-import re
-import gc
-import tqdm
-import json
 import sys
 import os
-
+import sqlite3
+import click
 
 class kClusters:
 
-    names_map = {}
     source = []
     target = []
+    names_map = dict()
     components = defaultdict(set)
 
-    def __init__(self, pairwise_file, names_map_file, cut_off_threshold = 0.0):
+    def __init__(self, sqlite_file, userQs, cut_off_threshold):
+
+        try:
+            self.conn = sqlite3.connect(sqlite_file)
         
+        except sqlite3.Error as err:
+            print(err)
+            print(f"couldn't connect to {sqlite_file}", file = sys.stderr)
+            sys.exit(1)
+
+        self.userQs = userQs
         self.cut_off_threshold = cut_off_threshold
-        self.pairwise_file = pairwise_file
-
-        with open(names_map_file) as namesMap:
-            next(namesMap)
-            for name in namesMap:
-                name = name.strip().split()
-                self.names_map[int(name[0])] = name[1]
-
+        self.sqlite_file = sqlite_file
+        self.kSize = self.conn.execute("SELECT value from meta_info WHERE key='kSize'").fetchone()[0]
+        self.sqlite_get_namesmap()
 
     def ids_to_names(self, cluster):
         new_cluster = []
@@ -34,27 +36,44 @@ class kClusters:
 
         return new_cluster
 
+    def sqlite_get_namesmap(self):
+        cursor = self.conn.execute("SELECT * FROM namesmap")
+        cursor = cursor.fetchall()
+        for row in cursor:
+            self.names_map[row[1]] = row[2]
 
     def build_graph(self):
-        print ("Building the graph...")
+        user_Qs = self.userQs
+        user_Qs.sort(reverse = True)
+        indeces = {i:idx+3 for idx,i in enumerate(user_Qs)}
+        query_Qs = ", ".join([f"Q_{Q}" for Q in user_Qs])
 
-        with open(self.pairwise_file) as PRW:
-            next(PRW)
-            for line in PRW:
-                info = re.findall(r'(\d+(?:\.\d+)?)', line)
-                _seq1 = int(info[0])
-                _seq2 = int(info[1])
-                _norm = float(info[-1])
+        curs = self.conn.execute(f'select seq1, seq2, min_kmers, {query_Qs} from virtualQs')
 
-                if _norm < self.cut_off_threshold:
-                    continue
+        for row in curs:
+            seq1 = row[0]
+            seq2 = row[1]
+            min_kmers = row[2]
+            similarity = 0.0
+            Q_prev = 0
+            
+            for Q_val, idx in indeces.items():
+                Q_curr = row[idx]
+                sim = ( (Q_curr - Q_prev) * (Q_val / self.kSize) ) / min_kmers
+                similarity += sim
+                Q_prev = Q_curr
 
-                self.source.append(_seq1)
-                self.target.append(_seq2)
+            if similarity < self.cut_off_threshold:
+                continue
+            
+            self.source.append(seq1)
+            self.target.append(seq2)
+
 
         for i in range(1, len(self.names_map) + 1, 1):
-                self.source.append(i)
-                self.target.append(i)
+                if i not in self.source and i not in self.target:
+                    self.source.append(i)
+                    self.target.append(i)
 
     def clustering(self):
         registers = defaultdict(lambda: None)
@@ -82,46 +101,34 @@ class kClusters:
 
 
     def export_kCluster(self):
-        kCluster_file_name = f"kCluster_{self.cut_off_threshold:.2f}%_"
-        kCluster_file_name += os.path.basename(self.pairwise_file).split(".")[0]
+        kCluster_file_name = f"clusters_{self.cut_off_threshold:.2f}%_"
+        kCluster_file_name += os.path.basename(self.sqlite_file).split(".")[0]
         kCluster_file_name += ".tsv"
         
         with open(kCluster_file_name, 'w') as kClusters:
             kClusters.write("kClust_id\tseqs_ids\n")
-            for cluster_id, (k, v) in enumerate(self.components.items()):
-                #kClusters.write(f"{cluster_id + 1}\t{','.join(self.ids_to_names(v))}\n")
-                kClusters.write(f"{cluster_id}\t{','.join(list(map(str,v)))}\n")  
+            for cluster_id, (k, v) in enumerate(self.components.items(), 1):
+                kClusters.write(f"{cluster_id}\t{','.join(self.ids_to_names(v))}\n")
 
-        print(f"Total Number Of Clusters: {cluster_id}")
-
+        #print(f"Total Number Of Clusters: {cluster_id}", file = sys.stderr)
 
 
+@click.command()
+@click.option('-m','--min-q', required=False, type=int, default = 0, help="minimum virtualQ")
+@click.option('-M','--max-q', required=False, type=int, default = 0, help="maximum virtualQ")
+@click.option('-s','--step-q', required=False, type=int, default = 2, help="virtualQs range step")
+@click.option('-c','--cutoff', required=False, type=click.FloatRange(0, 1, clamp=True) , default = 0.0, show_default=True, help="cluster sequences with (similarity > cutoff)")
+@click.option('-f', '--db', type=click.Path(exists=True), help="sqlite database file")
 
-cut_off_threshold = 0.0
-relations_file = ""
-names_map_file = ""
-output_file = ""
+def main(min_q, max_q, step_q, db, cutoff):
+    """This script performs sequences clustering regarding user-selected virtualQs with predefined threshold."""
 
-if len(sys.argv) < 3:
-    exit("Please pass <relations_tsv_file> <names_map_file> <op: cuttof_threshold %> <op: output_file_name>")
+    userQs = [Q for Q in range(min_q, max_q + 1, step_q)]
+    kCl = kClusters(db, userQs, cutoff)
+    kCl.build_graph()
+    kCl.clustering()
+    kCl.export_kCluster()
 
-else:
-    relations_file = sys.argv[1]
-    names_map_file = sys.argv[2]
 
-if len(sys.argv) >= 4:
-    cut_off_threshold = float(sys.argv[3])
-
-else:
-    cut_off_threshold = 0.00000000001
-
-if len(sys.argv) == 5:
-        output_file = sys.argv[4]
-
-else:
-    output_file = os.path.basename(names_map_file).split(".")[0]
-
-kCl = kClusters(relations_file, names_map_file, cut_off_threshold)
-kCl.build_graph()
-kCl.clustering()
-kCl.export_kCluster()
+if __name__ == "__main__":
+    main()  # pylint: disable=no-value-for-parameter
