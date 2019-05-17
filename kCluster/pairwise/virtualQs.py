@@ -589,18 +589,18 @@ def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, outpu
     VQ.export_pairwise()
 
 
-@click.command()
-@click.option('-m','--min-q', 'minQ', required=False, type=int, default = 5, show_default=True, help="minimum virtualQ")
-@click.option('-M','--max-q', 'maxQ', required=False, type=int, default = -1, help="maximum virtualQ")
-@click.option('-s','--step-q', 'stepQ', required=False, type=int, default = 2, show_default=True,  help="virtualQs range step")
-@click.option('-i', '--index-prefix', required=True, type=str, help="kProcessor index file prefix")
-@click.option('-o', '--output-prefix', required=False, type=str, default=None, help="virtualQs output file(s) prefix")
+@click.command(name="pairwise")
+@click.option('-m','--min-q', 'minQ', required=False, type=click.INT, default = 5, show_default=True, help="minimum virtualQ")
+@click.option('-M','--max-q', 'maxQ', required=False, type=click.INT, default = -1, help="maximum virtualQ")
+@click.option('-s','--step-q', 'stepQ', required=False, type=click.INT, default = 2, show_default=True,  help="virtualQs range step")
+@click.option('-i', '--index-prefix', required=True, type=click.STRING, help="kProcessor index file prefix")
+@click.option('-o', '--output-prefix', required=False, type=click.STRING, default=None, help="virtualQs output file(s) prefix")
 @click.option('--force', is_flag=True, help="Overwrite the already proessed virtualQs")
 @click.option('--backup', is_flag=True, help="Back up old virtualQs")
 @click.option('--export-colors', required=False, type=click.Choice(['json', 'pickle']), default=None, help="export supercolors data [debugging purposes]")
 def main(minQ, maxQ, stepQ, index_prefix, output_prefix, force, backup, export_colors):
     """
-    Generating pairwise matrices for single/multiple virtualQs minimum of 5 and maximum of kSize. 
+    Generating pairwise  matrices for single/multiple virtualQs.
     """
     if os.path.isfile(index_prefix + ".mqf"):
         index_file_path = index_prefix
@@ -615,15 +615,5 @@ def main(minQ, maxQ, stepQ, index_prefix, output_prefix, force, backup, export_c
                         output_prefix, export_colors, force, backup)
 
 
-if __name__ == '__main__':
-
-    print("""
-        ██╗  ██╗ ██████╗██╗     ██╗   ██╗███████╗████████╗███████╗██████╗ 
-        ██║ ██╔╝██╔════╝██║     ██║   ██║██╔════╝╚══██╔══╝██╔════╝██╔══██╗
-        █████╔╝ ██║     ██║     ██║   ██║███████╗   ██║   █████╗  ██████╔╝
-        ██╔═██╗ ██║     ██║     ██║   ██║╚════██║   ██║   ██╔══╝  ██╔══██╗
-        ██║  ██╗╚██████╗███████╗╚██████╔╝███████║   ██║   ███████╗██║  ██║
-        ╚═╝  ╚═╝ ╚═════╝╚══════╝ ╚═════╝ ╚══════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝                                            
-    \n\n""")
-
-    main() # pylint: disable=no-value-for-parameter
+# if __name__ == '__main__':
+#     main() # pylint: disable=no-value-for-parameter

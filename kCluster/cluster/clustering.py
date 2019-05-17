@@ -155,9 +155,8 @@ class kClusters:
 @click.option('-s','--step-q', required=False, type=int, default = None, help="virtualQs range step")
 @click.option('-c','--cutoff', required=False, type=click.FloatRange(0, 1, clamp=False) , default = 0.0, show_default=True, help="cluster sequences with (similarity > cutoff)")
 @click.option('-d', '--db', required=True, type=click.Path(exists=True), help="sqlite database file")
-
 def main(min_q, max_q, step_q, db, cutoff):
-    """This script performs sequences clustering regarding user-selected virtualQs with predefined threshold."""
+    """Sequences clustering regarding user-selected virtualQs."""
 
     scanQs = map(bool, [min_q, max_q, step_q])
 
