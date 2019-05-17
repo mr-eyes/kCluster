@@ -108,9 +108,8 @@ class kClusters:
 
 
         for i in range(1, len(self.names_map) + 1, 1):
-                if i not in self.source and i not in self.target:
-                    self.source.append(i)
-                    self.target.append(i)
+                self.source.append(i)
+                self.target.append(i)
 
     def clustering(self):
         registers = defaultdict(lambda: None)
