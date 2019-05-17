@@ -11,6 +11,7 @@ import os
 import pickle
 import sqlite3
 import click
+from src.click_context import cli
 
 # TODO use logging instead of normal prints.
 # TODO check best practices for sqlite for enhancements
@@ -589,7 +590,8 @@ def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, outpu
     VQ.export_pairwise()
 
 
-@click.command(name="pairwise")
+
+@cli.command(name = "pairwise", help_priority=2)
 @click.option('-m','--min-q', 'minQ', required=False, type=click.INT, default = 5, show_default=True, help="minimum virtualQ")
 @click.option('-M','--max-q', 'maxQ', required=False, type=click.INT, default = -1, help="maximum virtualQ")
 @click.option('-s','--step-q', 'stepQ', required=False, type=click.INT, default = 2, show_default=True,  help="virtualQs range step")

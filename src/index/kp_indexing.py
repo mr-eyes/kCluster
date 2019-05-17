@@ -1,6 +1,9 @@
-import click
+
 import sys
 import os
+import click
+from src.click_context import cli
+
 
 try:
     from kProcessor import index as kp_index
@@ -46,7 +49,7 @@ class Index:
             sys.exit(1)
 
 
-@click.command(name = "index")
+@cli.command(name = "index", help_priority=1)
 @click.option('-f', '--fasta', "fasta_file", required=True, type=click.Path(exists=True), help="FASTA file")
 @click.option('-n', '--names', "names_file", required=True, type=click.Path(exists=True), help="Names file")
 @click.option('-k', '--kmer-size', "kSize", required=True, type=click.IntRange(15, 31, clamp=False), help = "kmer size" )

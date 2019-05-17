@@ -2,6 +2,7 @@ import sqlite3
 import sys
 import os
 import click
+from src.click_context import cli
 
 class Dump:
 
@@ -47,8 +48,7 @@ class Dump:
             print("\t".join(row))
         
 
-
-@click.command("dump")
+@cli.command(name = "dump", help_priority=4)
 @click.option('-d', '--db', required=True, type=click.Path(exists=True), help="sqlite database file")
 @click.option('-t', '--table', required=False, type=click.Choice(['virtualQs', 'meta_info', 'namesmap']), show_default=True, default="virtualQs", help="database table to be exported")
 def main(db, table):

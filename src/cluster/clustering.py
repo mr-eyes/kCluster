@@ -5,6 +5,7 @@ import sys
 import os
 import sqlite3
 import click
+from src.click_context import cli
 
 class kClusters:
 
@@ -149,7 +150,7 @@ class kClusters:
         print(f"Total Number Of Clusters: {cluster_id}", file = sys.stderr)
 
 
-@click.command()
+@cli.command(name = "cluster", help_priority=3)
 @click.option('-m','--min-q', required=False, type=int, default = None, help="minimum virtualQ")
 @click.option('-M','--max-q', required=False, type=int, default = None, help="maximum virtualQ")
 @click.option('-s','--step-q', required=False, type=int, default = None, help="virtualQs range step")
@@ -175,7 +176,3 @@ def main(min_q, max_q, step_q, db, cutoff):
     kCl.build_graph()
     kCl.clustering()
     kCl.export_kCluster()
-
-
-if __name__ == "__main__":
-    main()  # pylint: disable=no-value-for-parameter
