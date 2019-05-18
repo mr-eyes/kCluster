@@ -14,15 +14,14 @@ class kClusters:
     names_map = dict()
     components = defaultdict(set)
 
-    def __init__(self, sqlite_file, userQs, cut_off_threshold):
-
+    def __init__(self,logger_obj, sqlite_file, userQs, cut_off_threshold):
+        self.Logger = logger_obj
+        
         try:
             self.conn = sqlite3.connect(sqlite_file)
         
         except sqlite3.Error as err:
-            print(err)
-            print(f"couldn't connect to {sqlite_file}", file = sys.stderr)
-            sys.exit(1)
+            self.Logger.ERROR(f"couldn't connect to {sqlite_file}\n{err}")
 
         # Check user selected Qs
         sqliteQs = [int(Q.split("_")[1]) for Q in self.sqlite_getQs()]
@@ -35,15 +34,14 @@ class kClusters:
             ln_userQs = len(userQs)
             
             if not ln_commonQs:
-                print("invalid virtualQs range, none of them found in the sqlite database", file = sys.stderr)
-                sys.exit(1)
+                self.Logger.ERROR("invalid virtualQs range, none of them found in the sqlite database")
             
             elif ln_commonQs == ln_userQs:
                 self.userQs = userQs
             
             else:
                 unfound = set(userQs) - set(sqliteQs)
-                print(f"The following Qs {unfound} couldn't be found in the sqlite database, processing the others..", file = sys.stderr)
+                self.Logger.WARNING(f"The following Qs '{unfound}' couldn't be found in the sqlite database, processing the others..")
                 self.userQs = list(commonQs)
             
         
@@ -155,23 +153,22 @@ class kClusters:
 @click.option('-s','--step-q', required=False, type=int, default = None, help="virtualQs range step")
 @click.option('-c','--cutoff', required=False, type=click.FloatRange(0, 1, clamp=False) , default = 0.0, show_default=True, help="cluster sequences with (similarity > cutoff)")
 @click.option('-d', '--db', required=True, type=click.Path(exists=True), help="sqlite database file")
-def main(min_q, max_q, step_q, db, cutoff):
+@click.pass_context
+def main(ctx, min_q, max_q, step_q, db, cutoff):
     """Sequences clustering regarding user-selected virtualQs."""
-
     scanQs = map(bool, [min_q, max_q, step_q])
 
     if True in scanQs and False in scanQs:
-        print("Please complete the virtualQs range", file = sys.stderr)
-        exit(1)
+        ctx.obj.ERROR("Please complete the virtualQs range")
     
     elif not(min_q and max_q and step_q):
-        print("processing all virtualQs in the sqlite database", file = sys.stderr)
+        ctx.obj.WARNING("processing all virtualQs in the sqlite database")
         userQs = [-1]
     
     else:
         userQs = [Q for Q in range(min_q, max_q + 1, step_q)]
     
-    kCl = kClusters(db, userQs, cutoff)
+    kCl = kClusters(logger_obj= ctx.obj, sqlite_file = db, userQs = userQs, cut_off_threshold = cutoff)
     kCl.build_graph()
     kCl.clustering()
     kCl.export_kCluster()

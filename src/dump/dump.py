@@ -6,8 +6,8 @@ from src.click_context import cli
 
 class Dump:
 
-    def __init__(self, sqlite_file):
-         
+    def __init__(self, logger_obj, sqlite_file):
+        self.Logger = logger_obj
         try:
             self.conn = sqlite3.connect(sqlite_file)
         
@@ -51,8 +51,8 @@ class Dump:
 @cli.command(name = "dump", help_priority=4)
 @click.option('-d', '--db', required=True, type=click.Path(exists=True), help="sqlite database file")
 @click.option('-t', '--table', required=False, type=click.Choice(['virtualQs', 'meta_info', 'namesmap']), show_default=True, default="virtualQs", help="database table to be exported")
-def main(db, table):
+@click.pass_context
+def main(ctx, db, table):
     """Dump sqlite database table to the stdout in TSV format."""
-
-    tsv = Dump(sqlite_file = db)
+    tsv = Dump(logger_obj = ctx.obj, sqlite_file = db)
     tsv.table_export(table)

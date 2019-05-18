@@ -24,7 +24,7 @@ class virtualQs:
     __kSize = None
     overwrite = False
 
-    def __init__(self, index_prefix: str):
+    def __init__(self, logger_obj, index_prefix: str):
         """VirtualQs class constructor.
 
         Args:
@@ -32,7 +32,7 @@ class virtualQs:
             output_prefix (string): prefix for the output files(s)
 
         """
-
+        self.Logger = logger_obj
         self.kf = kp.kDataFrame.load(index_prefix)
         self.__kSize = self.kf.getkSize()
 
@@ -504,8 +504,29 @@ class virtualQs:
         return kmer_str
 
 
-def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, output_type = None, force_write = True, backup = False):
-    VQ = virtualQs(index_prefix=index_prefix)
+@cli.command(name = "pairwise", help_priority=2)
+@click.option('-m','--min-q', 'min_q', required=False, type=click.INT, default = 5, show_default=True, help="minimum virtualQ")
+@click.option('-M','--max-q', 'max_q', required=False, type=click.INT, default = -1, help="maximum virtualQ")
+@click.option('-s','--step-q', 'step_q', required=False, type=click.INT, default = 2, show_default=True,  help="virtualQs range step")
+@click.option('-i', '--index-prefix', required=True, type=click.STRING, help="kProcessor index file prefix")
+@click.option('-o', '--output-prefix', required=False, type=click.STRING, default=None, help="virtualQs output file(s) prefix")
+@click.option('--force','force_write', is_flag=True, help="Overwrite the already proessed virtualQs")
+@click.option('--backup', is_flag=True, help="Back up old virtualQs")
+@click.option('--export-colors', required=False, type=click.Choice(['json', 'pickle']), default=None, help="export supercolors data [debugging purposes]")
+@click.pass_context
+def main(ctx, min_q, max_q, step_q, index_prefix, output_prefix, force_write, backup, export_colors):
+    """
+    Generating pairwise  matrices for single/multiple virtualQs.
+    """
+    if not os.path.isfile(index_prefix + ".mqf"):
+        print(f"Index prefix {index_prefix} Does not exist!", file = sys.stderr)
+        sys.exit(1)
+
+    if not output_prefix:
+        output_prefix = os.path.basename(index_prefix)
+
+
+    VQ = virtualQs(logger_obj = ctx.obj, index_prefix=index_prefix)
     VQ.set_params(minQ=min_q, maxQ=max_q, stepQ=step_q)
     VQ.sqlite_initiate(output_prefix, force_write, backup)
 
@@ -575,47 +596,16 @@ def construct_virtualQs(min_q, max_q, step_q, index_prefix, output_prefix, outpu
 
 
     # Save all Qs to files.
-    if output_type:
+    if export_colors:
         _dir_name = os.path.dirname(output_prefix) 
         if not os.path.isdir(_dir_name):
             os.mkdir(_dir_name)
 
         for Q in VQ.mainQs:
-            VQ.export_superColors(output_prefix, Q, output_type)
+            VQ.export_superColors(output_prefix, Q, export_colors)
 
     # Construct pairwise matrices    
     VQ.pairwise()
     
     # export pairwise matrices
     VQ.export_pairwise()
-
-
-
-@cli.command(name = "pairwise", help_priority=2)
-@click.option('-m','--min-q', 'minQ', required=False, type=click.INT, default = 5, show_default=True, help="minimum virtualQ")
-@click.option('-M','--max-q', 'maxQ', required=False, type=click.INT, default = -1, help="maximum virtualQ")
-@click.option('-s','--step-q', 'stepQ', required=False, type=click.INT, default = 2, show_default=True,  help="virtualQs range step")
-@click.option('-i', '--index-prefix', required=True, type=click.STRING, help="kProcessor index file prefix")
-@click.option('-o', '--output-prefix', required=False, type=click.STRING, default=None, help="virtualQs output file(s) prefix")
-@click.option('--force', is_flag=True, help="Overwrite the already proessed virtualQs")
-@click.option('--backup', is_flag=True, help="Back up old virtualQs")
-@click.option('--export-colors', required=False, type=click.Choice(['json', 'pickle']), default=None, help="export supercolors data [debugging purposes]")
-def main(minQ, maxQ, stepQ, index_prefix, output_prefix, force, backup, export_colors):
-    """
-    Generating pairwise  matrices for single/multiple virtualQs.
-    """
-    if os.path.isfile(index_prefix + ".mqf"):
-        index_file_path = index_prefix
-    else:
-        print(f"Index prefix {index_prefix} Does not exist!", file = sys.stderr)
-        sys.exit(1)
-
-    if not output_prefix:
-        output_prefix = os.path.basename(index_prefix)
-
-    construct_virtualQs(minQ, maxQ, stepQ, index_file_path,
-                        output_prefix, export_colors, force, backup)
-
-
-# if __name__ == '__main__':
-#     main() # pylint: disable=no-value-for-parameter

@@ -1,6 +1,6 @@
 import click
 from .version import __version__
-
+from src.lib.custom_logger import Logger
 class SpecialHelpOrder(click.Group):
 
     def __init__(self, *args, **kwargs):
@@ -36,5 +36,8 @@ class SpecialHelpOrder(click.Group):
 
 @click.group(cls=SpecialHelpOrder)
 @click.version_option(version=__version__, prog_name="kCluster")
-def cli():
+@click.option('-q','--quiet', default=False, is_flag=True)
+@click.pass_context
+def cli(ctx, quiet):
+    ctx.obj = Logger(quiet)
     pass
