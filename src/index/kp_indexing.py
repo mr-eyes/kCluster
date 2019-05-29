@@ -26,16 +26,18 @@ class Index:
                 if len(line.strip().split("\t")) != 2:
                     self.Logger.ERROR(f"invalid names line detected at L{i}: '{line.strip()}'")
 
-    def index(self, kSize):
+    def index(self, kSize, mqf_q):
         """
         peform indexing with given kSize
         """
 
+        self.Logger.INFO(f"kSize:{kSize}, Q:{mqf_q}")
         self.Logger.INFO("Indexing..")
 
         try:
-            self.idx = kp_index(self.fasta_file, self.names_file, kSize)
-        except:
+            self.idx = kp_index(self.fasta_file, self.names_file, kSize, mqf_q)
+        except Exception as e:
+            print(e)
             self.Logger.ERROR("Indexing failed")
 
     def write_to_disk(self, output_prefix):
@@ -56,9 +58,10 @@ def validate_kSize(ctx, param, value):
 @click.option('-f', '--fasta', "fasta_file", required=True, type=click.Path(exists=True), help="FASTA file")
 @click.option('-n', '--names', "names_file", required=True, type=click.Path(exists=True), help="Names file")
 @click.option('-k', '--kmer-size', "kSize", callback=validate_kSize, required=True, type=click.IntRange(15, 31, clamp=False), help = "kmer size" )
+@click.option('-q', '--mqf-q', "mqf_q", required=True, type=click.INT, default=27 , help = "MQF Q Value" )
 @click.option('-o', '--output', "output_prefix", required=False, default=None, help = "index output file prefix")
 @click.pass_context
-def main(ctx, fasta_file, names_file, kSize, output_prefix):
+def main(ctx, fasta_file, names_file, kSize, mqf_q, output_prefix):
     '''FASTA file indexing'''  
     
     if not output_prefix:
@@ -68,5 +71,5 @@ def main(ctx, fasta_file, names_file, kSize, output_prefix):
 
     idx = Index(logger_obj = ctx.obj,fasta_file =  fasta_file,names_file = names_file)
     idx.validate_names()
-    idx.index(kSize)
+    idx.index(kSize, mqf_q)
     idx.write_to_disk(output_prefix)
