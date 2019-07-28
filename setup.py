@@ -10,7 +10,7 @@
 from setuptools import setup, find_packages
 import sys
 from os import path
-from .src.version import __version__ # pylint: disable=relative-beyond-top-level
+from src.version import __version__ # pylint: disable=relative-beyond-top-level
 
 here = path.abspath(path.dirname(__file__))
 
