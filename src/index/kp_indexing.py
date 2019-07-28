@@ -5,7 +5,7 @@ from src.click_context import cli
 #from src.lib.custom_logger import Logger
 
 try:
-    from kProcessor import index as kp_index
+    import kProcessor as kp
 except ImportError:
     click.secho("kProcessor package could not found.", fg="red", bold=True , file = sys.stderr) 
 
@@ -35,7 +35,10 @@ class Index:
         self.Logger.INFO("Indexing..")
 
         try:
-            self.idx = kp_index(self.fasta_file, self.names_file, kSize, mqf_q)
+            KD = kp.initialize_kmerDecoder(self.fasta_file, 1000, "kmers" , {"k_size" : kSize})
+            self.idx = kp.kDataFrameMAP(kSize)
+            kp.index(KD, self.names_file, self.idx)
+            self.Logger.SUCCESS("Indexing Completed")
         except Exception as e:
             print(e)
             self.Logger.ERROR("Indexing failed")
@@ -63,7 +66,7 @@ def validate_kSize(ctx, param, value):
 @click.pass_context
 def main(ctx, fasta_file, names_file, kSize, mqf_q, output_prefix):
     '''FASTA file indexing'''  
-    
+
     if not output_prefix:
         output_prefix = os.path.basename(fasta_file)
         output_prefix = os.path.splitext(output_prefix)[0]
