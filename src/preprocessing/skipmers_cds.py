@@ -4,6 +4,9 @@
 import sys
 import os
 import click
+import subprocess
+import errno
+import glob
 from src.click_context import cli
 
 
@@ -74,22 +77,89 @@ class Preprocess:
                 self.part_to_len[splitted["part"]] = splitted["len"]
                 self.temp_headers.clear()
 
+    @staticmethod
+    def tool_exist(name):
+        try:
+            devnull = open(os.devnull)
+            subprocess.Popen([name], stdout=devnull, stderr=devnull).communicate()
+        except OSError as e:
+            if e.errno == errno.ENOENT:
+                return False
+        return True
+
+    @staticmethod
+    def run_command(command):
+        try:
+            devnull = open(os.devnull)
+            subprocess.Popen(command, stdout=devnull, stderr=devnull).communicate()
+        except OSError as e:
+            if e.errno == errno.ENOENT:
+                return False
+        return True
+
 
 @cli.command(name="preprocess_cds", help_priority=9)
 @click.option('-f', '--fasta', "fasta_file", required=True, type=click.Path(exists=True), help="FASTA file")
 @click.option('-t', '--diff-threshold', "diff_threshold", required=False, default=10, type=click.INT,
               help="minimum length difference")
 @click.option('-l', '--cds-len', "cds_length", required=False, default=50, type=click.INT, help="Minimum CDS length")
+@click.option('-s', '--strand', 'strand', is_flag=True, required=False, help="Examine only the top strand")
 @click.pass_context
-def preprocess_cds(ctx, fasta_file, diff_threshold, cds_length):
+def preprocess_cds(ctx, fasta_file, diff_threshold, cds_length, strand):
     '''Preprocess protein coding transcript to extract CDS'''
+
+    if not Preprocess.tool_exist("TransDecoder.LongOrfs"):
+        ctx.obj.ERROR("TransDecoder is not installed")
+    else:
+        ctx.obj.INFO("Processing..")
 
     output_names_file = fasta_file + ".names"
 
-    CDS = Preprocess(fasta_file, diff_threshold)
-    CDS.parse()
+    """Construct Transdecoder Commands"""
 
+    commands = list()
+    cmd = f"TransDecoder.LongOrfs -m {cds_length}"
+
+    if strand:
+        cmd += " -S"
+
+    cmd += f" -t {fasta_file}"
+    cmd = cmd.split()
+    Preprocess.run_command(cmd)
+
+    cmd = "rm -rf".split() + glob.glob("*__checkpoints*")
+    Preprocess.run_command(cmd)
+
+    cmd = "rm -rf".split() + glob.glob("*cmds")
+    Preprocess.run_command(cmd)
+
+
+    cmd = "mkdir -p transdecoder_cds".split()
+    Preprocess.run_command(cmd)
+
+
+    cmd = f"mv {os.path.basename(fasta_file)}.transdecoder_dir/longest_orfs.cds ./transdecoder_cds/".split()
+    Preprocess.run_command(cmd)
+
+
+    new_fasta_file = f"./transdecoder_cds/cds_{os.path.basename(fasta_file)}"
+    cmd = f"mv ./transdecoder_cds/longest_orfs.cds {new_fasta_file}".split()
+    Preprocess.run_command(cmd)
+
+
+    cmd = f"rm -rf".split() + glob.glob("*transdecoder_dir*")
+    Preprocess.run_command(cmd)
+
+
+
+    """END Transdecoder Commands Construction"""
+
+    CDS = Preprocess(new_fasta_file, diff_threshold)
+    CDS.parse()
+    ctx.obj.INFO("Writing the names file...")
     with open(output_names_file, 'w') as output:
         for groupName, headers in CDS.namesfile.items():
             for header in headers:
                 output.write(f"{header}\t{groupName}\n")
+
+    ctx.obj.SUCCESS("Completed..")
