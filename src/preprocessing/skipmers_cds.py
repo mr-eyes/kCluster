@@ -35,7 +35,7 @@ class Preprocess:
         max_len = self.part_to_len.pop(first_part)
 
         for _part, _len in self.part_to_len.items():
-            if max_len - _len < self.diff_threshold:
+            if max_len - _len < max_len * (self.diff_threshold / 100):
                 parts.append(_part)
                 max_len = _len
             else:
@@ -101,7 +101,7 @@ class Preprocess:
 @cli.command(name="preprocess_cds", help_priority=9)
 @click.option('-f', '--fasta', "fasta_file", required=True, type=click.Path(exists=True), help="FASTA file")
 @click.option('-t', '--diff-threshold', "diff_threshold", required=False, default=10, type=click.INT,
-              help="minimum length difference")
+              help="minimum length difference %")
 @click.option('-l', '--cds-len', "cds_length", required=False, default=50, type=click.INT, help="Minimum CDS length")
 @click.option('-s', '--strand', 'strand', is_flag=True, required=False, help="Examine only the top strand")
 @click.pass_context
