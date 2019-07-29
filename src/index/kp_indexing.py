@@ -26,17 +26,16 @@ class Index:
                 if len(line.strip().split("\t")) != 2:
                     self.Logger.ERROR(f"invalid names line detected at L{i}: '{line.strip()}'")
 
-    def index(self, kSize, mqf_q):
+    def index(self, mode, params):
         """
         peform indexing with given kSize
         """
 
-        self.Logger.INFO(f"kSize:{kSize}, Q:{mqf_q}")
-        self.Logger.INFO("Indexing..")
+        self.Logger.INFO(f"Indexing by {mode} with params: {params}")
 
         try:
-            KD = kp.initialize_kmerDecoder(self.fasta_file, 1000, "kmers" , {"k_size" : kSize})
-            self.idx = kp.kDataFrameMAP(kSize)
+            KD = kp.initialize_kmerDecoder(self.fasta_file, 1000, mode, params)
+            self.idx = kp.kDataFrameMAP(params["k_size"])
             kp.index(KD, self.names_file, self.idx)
             self.Logger.SUCCESS("Indexing Completed")
         except Exception as e:
@@ -57,22 +56,91 @@ def validate_kSize(ctx, param, value):
         raise click.BadParameter(f"kmer size: {value} is even, please enter an odd value.")
     return value
 
-@cli.command(name = "index", help_priority=1)
+
+def validate_ORF(ctx, param, value):
+    if value not in [0, 1, 2, 3]:
+        raise click.BadParameter(f"Please select ORF 1, 2 or 3")
+    return value
+
+
+"""
+KMERS
+"""
+
+
+@cli.command(name="index_kmers", help_priority=1)
 @click.option('-f', '--fasta', "fasta_file", required=True, type=click.Path(exists=True), help="FASTA file")
 @click.option('-n', '--names', "names_file", required=True, type=click.Path(exists=True), help="Names file")
-@click.option('-k', '--kmer-size', "kSize", callback=validate_kSize, required=True, type=click.IntRange(15, 31, clamp=False), help = "kmer size" )
-@click.option('-q', '--mqf-q', "mqf_q", required=True, type=click.INT, default=27 , help = "MQF Q Value" )
-@click.option('-o', '--output', "output_prefix", required=False, default=None, help = "index output file prefix")
+@click.option('-k', '--kmer-size', "kSize", callback=validate_kSize, required=True,
+              type=click.IntRange(7, 31, clamp=False), help="kmer size")
+@click.option('-o', '--output', "output_prefix", required=False, default=None, help="index output file prefix")
 @click.pass_context
-def main(ctx, fasta_file, names_file, kSize, mqf_q, output_prefix):
-    '''FASTA file indexing'''  
+def kmers(ctx, fasta_file, names_file, kSize, output_prefix):
+    '''FASTA file indexing by Kmers'''
 
     if not output_prefix:
         output_prefix = os.path.basename(fasta_file)
         output_prefix = os.path.splitext(output_prefix)[0]
         output_prefix = "idx" + "_" + output_prefix
 
-    idx = Index(logger_obj = ctx.obj,fasta_file =  fasta_file,names_file = names_file)
+    mode = "kmers"
+    params = {"k_size": kSize}
+
+    idx = Index(logger_obj=ctx.obj, fasta_file=fasta_file, names_file=names_file)
     idx.validate_names()
-    idx.index(kSize, mqf_q)
+    idx.index(mode, params)
     idx.write_to_disk(output_prefix)
+
+
+"""
+SKIPMERS
+"""
+
+
+@cli.command(name="index_skipmers", help_priority=9)
+@click.option('-f', '--fasta', "fasta_file", required=True, type=click.Path(exists=True), help="FASTA file")
+@click.option('-n', '--names', "names_file", required=True, type=click.Path(exists=True), help="Names file")
+@click.option('-k', '--kmer-size', "skipmers_kSize", required=True, type=click.INT, help="kmer size")
+@click.option('-m', '--cycle-bases', "skipmers_m", required=True, type=click.INT, help="used bases per cycle")
+@click.option('-n', '--cycle-length', "skipmers_n", required=True, type=click.INT, help="kmer size(cycle length")
+@click.option('--orf', "orf", required=False, type=click.INT, callback=validate_ORF, default=0,
+              help="select ORF <1,2,3>")
+@click.option('-o', '--output', "output_prefix", required=False, default=None, help="index output file prefix")
+@click.pass_context
+def skipmers(ctx, fasta_file, names_file, skipmers_kSize, skipmers_m, skipmers_n, orf, output_prefix):
+    '''FASTA file indexing by Skipmers'''
+
+    if not output_prefix:
+        output_prefix = os.path.basename(fasta_file)
+        output_prefix = os.path.splitext(output_prefix)[0]
+        output_prefix = "idx" + "_" + output_prefix
+
+    mode = "skipmers"
+    params = {"k_size": skipmers_kSize, "m": skipmers_m, "n": skipmers_n, "orf": orf}
+
+    idx = Index(logger_obj=ctx.obj, fasta_file=fasta_file, names_file=names_file)
+    idx.validate_names()
+    idx.index(mode, params)
+    idx.write_to_disk(output_prefix)
+
+
+""" Return back later"""
+# @cli.command(name = "index", help_priority=1)
+# @click.option('-f', '--fasta', "fasta_file", required=True, type=click.Path(exists=True), help="FASTA file")
+# @click.option('-n', '--names', "names_file", required=True, type=click.Path(exists=True), help="Names file")
+# @click.option('-k', '--kmer-size', "kSize", callback=validate_kSize, required=True, type=click.IntRange(15, 31, clamp=False), help = "kmer size" )
+# @click.option('-q', '--mqf-q', "mqf_q", required=True, type=click.INT, default=27 , help = "MQF Q Value" )
+# @click.option('-o', '--output', "output_prefix", required=False, default=None, help = "index output file prefix")
+# @click.pass_context
+# def main(ctx, fasta_file, names_file, kSize, mqf_q, output_prefix):
+#     '''FASTA file indexing'''
+#
+#     if not output_prefix:
+#         output_prefix = os.path.basename(fasta_file)
+#         output_prefix = os.path.splitext(output_prefix)[0]
+#         output_prefix = "idx" + "_" + output_prefix
+#
+#     idx = Index(logger_obj = ctx.obj,fasta_file =  fasta_file,names_file = names_file)
+#     idx.validate_names()
+#     idx.index(kSize, mqf_q)
+#     idx.write_to_disk(output_prefix)
