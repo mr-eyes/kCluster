@@ -35,8 +35,9 @@ class Index:
 
         try:
             KD = kp.initialize_kmerDecoder(self.fasta_file, 1000, mode, params)
+            # self.idx = kp.kDataFrameMQF(params["k_size"], 28, 3)
             self.idx = kp.kDataFrameMAP(params["k_size"])
-            kp.index(KD, self.names_file, self.idx)
+            self.ckf = kp.index(KD, self.names_file, self.idx)
             self.Logger.SUCCESS("Indexing Completed")
         except Exception as e:
             print(e)
@@ -46,7 +47,7 @@ class Index:
         '''save index file to disk'''
 
         try:
-            self.idx.save(output_prefix)
+            self.ckf.save(output_prefix)
         except:
             self.Logger.ERROR("saving index to disk failed")
 
