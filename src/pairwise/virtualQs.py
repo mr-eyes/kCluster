@@ -34,7 +34,7 @@ class virtualQs:
         """
         self.Logger = logger_obj
         self.kf = kp.kDataFrame.load(index_prefix)
-        self.__kSize = self.kf.getkSize()
+        self.__kSize = self.kf.ksize()
 
         self.index_prefix = index_prefix
         
@@ -518,7 +518,7 @@ def main(ctx, min_q, max_q, step_q, index_prefix, output_prefix, force_write, ba
     """
     Generating pairwise  matrices for single/multiple virtualQs.
     """
-    if not os.path.isfile(index_prefix + ".mqf"):
+    if not os.path.isfile(index_prefix + ".map") and not os.path.isfile(index_prefix + ".mqf"):
         print(f"Index prefix {index_prefix} Does not exist!", file = sys.stderr)
         sys.exit(1)
 
