@@ -113,8 +113,6 @@ def preprocess_cds(ctx, fasta_file, diff_threshold, cds_length, strand):
     else:
         ctx.obj.INFO("Processing..")
 
-    output_names_file = fasta_file + ".names"
-
     """Construct Transdecoder Commands"""
 
     commands = list()
@@ -157,9 +155,10 @@ def preprocess_cds(ctx, fasta_file, diff_threshold, cds_length, strand):
     CDS = Preprocess(new_fasta_file, diff_threshold)
     CDS.parse()
     ctx.obj.INFO("Writing the names file...")
+    output_names_file = "transdecoder_cds/cds_" + fasta_file + ".names"
     with open(output_names_file, 'w') as output:
         for groupName, headers in CDS.namesfile.items():
             for header in headers:
-                output.write(f"{header}\t{groupName}\n")
+                output.write(f"{header[1:]}\t{groupName[1:]}\n")
 
     ctx.obj.SUCCESS("Completed..")
