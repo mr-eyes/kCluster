@@ -1,5 +1,5 @@
 import click
-from .version import __version__
+from src.version import __version__
 from src.lib.custom_logger import Logger
 class SpecialHelpOrder(click.Group):
 
