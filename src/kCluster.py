@@ -2,12 +2,12 @@ import sys
 import click
 
 from src.click_context import cli
-from .index.kp_indexing import kmers as index_kmers       # pylint: disable=relative-beyond-top-level
-from .index.kp_indexing import skipmers as index_skipmers       # pylint: disable=relative-beyond-top-level
-from .cluster.clustering import main as cluster_main    # pylint: disable=relative-beyond-top-level
-from .pairwise.virtualQs import main as pairwise_main   # pylint: disable=relative-beyond-top-level
-from .dump.dump import main as dump_main                # pylint: disable=relative-beyond-top-level
-from .preprocessing.skipmers_cds import preprocess_cds           # pylint: disable=relative-beyond-top-level
+from src.index.kp_indexing import kmers as index_kmers       # pylint: disable=relative-beyond-top-level
+from src.index.kp_indexing import skipmers as index_skipmers       # pylint: disable=relative-beyond-top-level
+from src.cluster.clustering import main as cluster_main    # pylint: disable=relative-beyond-top-level
+from src.pairwise.virtualQs import main as pairwise_main   # pylint: disable=relative-beyond-top-level
+from src.dump.dump import main as dump_main                # pylint: disable=relative-beyond-top-level
+from src.preprocessing.skipmers_cds import preprocess_cds           # pylint: disable=relative-beyond-top-level
 
 
 
