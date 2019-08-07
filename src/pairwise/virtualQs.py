@@ -478,7 +478,7 @@ class virtualQs:
     # Take list of colors, sort it, and create a return a hash value
     @staticmethod
     def create_super_color(colors):
-        return md5(str(sorted(list(set(colors)))).encode()).hexdigest()[:9]
+        return hash(tuple(sorted(set(colors))))
 
     @property
     def get_params(self):
