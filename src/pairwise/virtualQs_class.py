@@ -141,6 +141,8 @@ class virtualQs:
         pairwise similarity matrix construction for all main Qs
         """
 
+        ## TODO This function can be parallelized
+
         # Calculating number of kmers per each sequence
         self.calculate_kmers_number()
 
@@ -155,14 +157,16 @@ class virtualQs:
                     _seq2 = combination[1]
 
                     seq_pair = tuple(sorted((_seq1, _seq2)))
-                    if seq_pair not in self.edges:
-                        self.edges[seq_pair] = dict()
-                        self.edges[seq_pair][Q] = color_count
+                    if seq_pair in self.edges:
+                        self.edges[seq_pair][Q] += color_count
+
                     else:
-                        if Q not in self.edges[seq_pair]:
-                            self.edges[seq_pair][Q] = color_count
-                        else:
-                            self.edges[seq_pair][Q] += color_count
+                        self.edges[seq_pair] = dict()
+
+                        for _Q in self.mainQs:
+                            self.edges[seq_pair][_Q] = 0
+
+                        self.edges[seq_pair][Q] = color_count
 
     def sqlite_table_exists(self, table_name):
         """Check if the sqlite table exists
