@@ -281,7 +281,8 @@ class virtualQs:
         (ID INTEGER PRIMARY KEY AUTOINCREMENT,
          seq1            INT     NOT NULL,
          seq2            INT     NOT NULL,
-         min_kmers       INT     NOT NULL);''')
+         min_kmers       INT     NOT NULL,
+         UNIQUE (seq1, seq2));''')
 
         # Create meta information table
         self.conn.execute('''CREATE TABLE meta_info
