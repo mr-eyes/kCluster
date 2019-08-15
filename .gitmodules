@@ -1,0 +1,10 @@
+[submodule "src/pairwise/CPP/lib/argh"]
+	path = src/pairwise/CPP/lib/argh
+	url = https://github.com/adishavit/argh
+[submodule "src/pairwise/CPP/lib/kProcessor"]
+	path = src/pairwise/CPP/lib/kProcessor
+	url = https://github.com/dib-lab/kProcessor.git
+	branch = devel
+[submodule "src/pairwise/CPP/lib/parallel-hashmap"]
+	path = src/pairwise/CPP/lib/parallel-hashmap
+	url = https://github.com/greg7mdp/parallel-hashmap
