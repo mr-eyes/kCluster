@@ -5,14 +5,63 @@ from __future__ import division
 import sys
 import os
 import click
+import subprocess
+import errno
 from src.click_context import cli
 from src.pairwise.virtualQs_class import  virtualQs
 
-# TODO use logging instead of normal prints.
-# TODO check best practices for sqlite for enhancements
-# TODO refactor the whole code to multiple classes
-# TODO add validation callbacks for click
+def prepare_params(ksize: int, minQ: int, maxQ: int, stepQ: int):
+    """Verify virtualQs
 
+    Args:
+        ksize (int) : index kmersize
+        minQ (int): minimum virtual Q (>= 1).
+        maxQ (int): minimum virtual Q (<= kmer size).
+        stepQ (int): virtual Q step (< maxQ)
+
+    """
+
+    __maxQ, __minQ, __stepQ = 0, 0, 0
+
+    if maxQ > ksize or maxQ == -1:
+        print("[INFO] auto reinitializing Q with kSize %d" % (ksize), file=sys.stderr)
+        __maxQ = ksize
+
+    elif maxQ is 0:
+        __maxQ = ksize
+
+    else:
+        __maxQ = maxQ
+
+    if (minQ < 5):
+        print("[WARNING] minQ shouldn't be less than 5, auto reinitializing minQ to 5", file=sys.stderr)
+        __minQ = 5
+    elif minQ > __maxQ:
+        print("[WARNING] minQ shouldn't exceed the maxQ, auto reinitializing minQ to maxQ", file=sys.stderr)
+        __minQ = __maxQ
+    else:
+        __minQ = minQ
+
+    if (stepQ < 1):
+        print("auto resetting Q step to 2", file=sys.stderr)
+        __minQ = 1
+    else:
+        __stepQ = stepQ
+
+    all_Qs = []
+    for i in range(__minQ, __maxQ + 1, __stepQ):
+        all_Qs.append(i)
+
+    return ",".join(map(str, all_Qs))
+
+def run_command(command):
+    try:
+        devnull = open(os.devnull)
+        subprocess.Popen(command, stdout=devnull, stderr=devnull).communicate()
+    except OSError as e:
+        if e.errno == errno.ENOENT:
+            return False
+    return True
 
 @cli.command(name = "pairwise", help_priority=2)
 @click.option('-m','--min-q', 'min_q', required=False, type=click.INT, default = 5, show_default=True, help="minimum virtualQ")
@@ -35,91 +84,13 @@ def main(ctx, min_q, max_q, step_q, index_prefix, output_prefix, force_write, ba
     if not output_prefix:
         output_prefix = os.path.basename(index_prefix)
 
-    ctx.obj.INFO("Loading the index...")
-    VQ = virtualQs(logger_obj = ctx.obj, index_prefix=index_prefix)
-    VQ.set_params(minQ=min_q, maxQ=max_q, stepQ=step_q)
-    VQ.sqlite_initiate(output_prefix, force_write, backup)
+    ksize = int()
 
-    it = VQ.kf.begin()
-    prev_kmer = it.getHashedKmer()
-    prev_kmer_color = it.getKmerCount()
+    with open(index_prefix + ".extra") as extra:
+        ksize = int(next(extra).strip())
 
-    ctx.obj.INFO("Processing...")
-    # Iterate over all kmers.
-    while it != VQ.kf.end():
-        it.next()
-        curr_kmer = it.getHashedKmer()
-        curr_kmer_color = it.getKmerCount()
+    Qs_list_str = prepare_params(ksize, min_q, max_q, step_q)
 
-        # Apply XOR to kmer1 and kmer2 (single time per iteration)
-        xor = prev_kmer ^ curr_kmer
+    
 
-        # Apply all masks with all Qs
-        for Q, MASK in VQ.masks.items():
-
-            # True if there's match, False if not
-            matched = not bool(xor & MASK)
-
-            if matched:
-                VQ.temp_superColors[Q] += [prev_kmer_color, curr_kmer_color]
-
-            else:
-                VQ.temp_superColors[Q].append(prev_kmer_color)
-                super_color_id = VQ.create_super_color(VQ.temp_superColors[Q])
-
-                # print("Matching Q%d %s & %s | FALSE | [prevC:%d, currC=%d]" % (Q, VQ.int_to_str(
-                #     prev_kmer, VQ.kSize), VQ.int_to_str(curr_kmer, VQ.kSize),  prev_kmer_color, curr_kmer_color))
-
-
-                # Check if the superColor already exist
-                # If yes: increment the count to one
-                # If No:  Insert the new superColor and set the count to 1
-                if super_color_id not in VQ.superColors[Q]:
-                    VQ.superColors[Q][super_color_id] = list(set(VQ.temp_superColors[Q]))
-                    VQ.superColorsCount[Q][super_color_id] = 1
-
-                else:
-                    # IF the supercolor already exist, just increment it
-                    VQ.superColorsCount[Q][super_color_id] += 1
-
-
-                VQ.temp_superColors[Q] = [curr_kmer_color]
-
-        prev_kmer = curr_kmer
-        prev_kmer_color = curr_kmer_color
-
-    # If the last iteration got a match, push it to the superColors
-
-    for Q, colors in VQ.temp_superColors.items():
-        colors.remove(curr_kmer_color)
-        if not len(colors):
-            continue
-        super_color_id = VQ.create_super_color(colors)
-
-        if super_color_id not in VQ.superColors[Q]:
-
-            VQ.superColors[Q][super_color_id] = list(set(colors))
-            VQ.superColorsCount[Q][super_color_id] = 1
-
-        else:
-            # IF the supercolor already exist, just increment it
-            VQ.superColorsCount[Q][super_color_id] += 1
-
-
-    # Save all Qs to files.
-    if export_colors:
-        _dir_name = os.path.dirname(output_prefix)
-        if not os.path.isdir(_dir_name):
-            os.mkdir(_dir_name)
-
-        for Q in VQ.mainQs:
-            VQ.export_superColors(output_prefix, Q, export_colors)
-
-    ctx.obj.INFO("Constructing the pairwise matrix...")
-    # Construct pairwise matrices    
-    VQ.pairwise()
-
-    ctx.obj.INFO("Saving results...")
-    # export pairwise matrices
-    VQ.export_pairwise()
     ctx.obj.SUCCESS("All completed...")
