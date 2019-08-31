@@ -6,6 +6,7 @@ import os
 import sqlite3
 import click
 from src.click_context import cli
+import glob
 
 class kClusters:
 
@@ -49,11 +50,37 @@ class kClusters:
         self.sqlite_get_namesmap()
 
     def tsv_constructor(self, tsv_file, userQs):
-        pass
+        tsvQs = set()
+        userQs = set(userQs)
+        with open(tsv_file, 'r') as pairwise_tsv:
+            header_line = next(pairwise_tsv).strip().split()[3:]
+            tsvQs = {int(Q.split("_")[1]) for Q in header_line}
+            commonQs = set(userQs).intersection(set(tsvQs))
+            ln_commonQs = len(commonQs)
+            ln_userQs = len(userQs)
+
+            if not ln_commonQs:
+                self.Logger.ERROR("invalid virtualQs range, none of them found in the pairwise TSV file")
+
+            elif ln_commonQs == ln_userQs:
+                self.userQs = userQs
+
+            else:
+                unfound = userQs - tsvQs
+                self.Logger.WARNING(f"The following Qs '{unfound}' couldn't be found in the pairwise TSV, processing the others..")
+                self.userQs = list(commonQs)
+
+            self.kSize = max(tsvQs)
+            self.tsv_get_namesmap()
+
+
+
 
     def __init__(self,logger_obj, pairwise_file_type, pairwise_file, userQs, cut_off_threshold):
         self.Logger = logger_obj
         self.cut_off_threshold = cut_off_threshold
+        self.pairwise_file_type = pairwise_file_type
+        self.file_name = pairwise_file
 
         if pairwise_file_type == "sqlite":
             self.sqlite_constructor(pairwise_file, userQs)
@@ -63,7 +90,7 @@ class kClusters:
     def ids_to_names(self, cluster):
         new_cluster = []
         for id in cluster:
-            new_cluster.append(self.names_map[id])
+            new_cluster.append(self.names_map[int(id)])
 
         return new_cluster
 
@@ -87,7 +114,57 @@ class kClusters:
         for row in cursor:
             self.names_map[row[1]] = row[2]
 
+    def tsv_get_namesmap(self):
+        if len(os.path.dirname(self.file_name)) > 1:
+            namesMap_file = glob.glob(os.path.dirname(self.file_name) + "/*map")[0].split(".")[0] + ".namesMap"
+        else:
+            namesMap_file = glob.glob("*map")[0].split(".")[0] + ".namesMap"
+
+        with open(namesMap_file, 'r') as namesMap:
+            next(namesMap) #skip the header
+            for row in namesMap:
+                row = row.strip().split()
+                self.names_map[int(row[0])] = row[1]
+
+
     def build_graph(self):
+        if self.pairwise_file_type == "tsv":
+            self.tsv_build_graph()
+        elif self.pairwise_file_type == "sqlite":
+            self.sqlite_build_graph()
+
+    def tsv_build_graph(self):
+        user_Qs = list(self.userQs)
+        user_Qs.sort(reverse=False)
+        indeces = {i: idx + 3 for idx, i in enumerate(user_Qs)}
+        print(indeces)
+        with open(self.file_name , 'r') as pairwise_tsv:
+            next(pairwise_tsv) #skip header
+            for row in pairwise_tsv:
+                row = row.strip().split()
+                seq1 = row[0]
+                seq2 = row[1]
+                min_kmers = int(row[2])
+                similarity = 0.0
+                Q_prev = 0
+
+                for Q_val, idx in indeces.items():
+                    Q_curr = int(row[idx])
+                    sim = ((Q_curr - Q_prev) * (Q_val / self.kSize)) / min_kmers
+                    similarity += sim
+                    Q_prev = Q_curr
+
+                if similarity < self.cut_off_threshold:
+                    continue
+
+                self.source.append(seq1)
+                self.target.append(seq2)
+
+            for i in range(1, len(self.names_map) + 1, 1):
+                self.source.append(i)
+                self.target.append(i)
+
+    def sqlite_build_graph(self):
         user_Qs = self.userQs
         user_Qs.sort(reverse = True)
         indeces = {i:idx+3 for idx,i in enumerate(user_Qs)}
@@ -146,12 +223,13 @@ class kClusters:
 
     def export_kCluster(self):
         kCluster_file_name = f"clusters_{self.cut_off_threshold:.2f}%_"
-        kCluster_file_name += os.path.basename(self.sqlite_file).split(".")[0]
+        kCluster_file_name += os.path.basename(self.file_name).split(".")[0]
         kCluster_file_name += ".tsv"
 
         with open(kCluster_file_name, 'w') as kClusters:
             kClusters.write("kClust_id\tseqs_ids\n")
             for cluster_id, (k, v) in enumerate(self.components.items(), 1):
+                print(v)
                 kClusters.write(f"{cluster_id}\t{','.join(self.ids_to_names(v))}\n")
 
         print(f"Total Number Of Clusters: {cluster_id}", file = sys.stderr)
@@ -179,10 +257,14 @@ def main(ctx, min_q, max_q, step_q, db, tsv, cutoff):
     else:
         userQs = [Q for Q in range(min_q, max_q + 1, step_q)]
 
+    pairwise_file = ""
+
     if db == None and tsv:
         file_type = "tsv"
+        pairwise_file = tsv
     elif tsv == None and db:
         file_type = "sqlite"
+        pairwise_file = db
     elif tsv and db:
         ctx.obj.ERROR("Can't select both sqlite and tsv.")
     elif tsv == None and db == None:
@@ -190,7 +272,7 @@ def main(ctx, min_q, max_q, step_q, db, tsv, cutoff):
 
 
     # kCl = kClusters(logger_obj= ctx.obj, sqlite_file = db, userQs = userQs, cut_off_threshold = cutoff)
-    kCl = kClusters(logger_obj=ctx.obj, pairwise_file_type=file_type, pairwise_file = db, userQs = userQs, cut_off_threshold = cutoff)
+    kCl = kClusters(logger_obj=ctx.obj, pairwise_file_type=file_type, pairwise_file = pairwise_file, userQs = userQs, cut_off_threshold = cutoff)
     kCl.build_graph()
     kCl.clustering()
     kCl.export_kCluster()
