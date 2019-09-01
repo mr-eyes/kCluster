@@ -193,7 +193,7 @@ class kClusters:
                 Q_curr = row[idx]
                 sim = ((Q_curr - Q_prev) * (Q_val / self.kSize)) / min_kmers
                 sim = abs(sim)
-                print(f"SQLITE: sim({seq1},{seq2}) = (({Q_curr} - {Q_prev}) * ({Q_val} / {self.kSize})) / {min_kmers} = {sim}")
+                #print(f"SQLITE: sim({seq1},{seq2}) = (({Q_curr} - {Q_prev}) * ({Q_val} / {self.kSize})) / {min_kmers} = {sim}")
                 similarity += sim
                 Q_prev = Q_curr
 
