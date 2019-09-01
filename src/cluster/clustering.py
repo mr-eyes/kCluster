@@ -137,21 +137,31 @@ class kClusters:
         user_Qs = list(self.userQs)
         user_Qs.sort(reverse=False)
         indeces = {i: idx + 3 for idx, i in enumerate(user_Qs)}
-        print(indeces)
+        _temp = indeces.copy()
+        for q, idx in _temp.items():
+            if int(q) < 5:
+                del indeces[q]
+
+        inv_indeces = {v: k for k, v in indeces.items()}
+        indeces_values = sorted(inv_indeces.keys(), reverse= True)
+
         with open(self.file_name , 'r') as pairwise_tsv:
             next(pairwise_tsv) #skip header
             for row in pairwise_tsv:
                 row = row.strip().split()
-                seq1 = row[0]
-                seq2 = row[1]
+                seq1 = int(row[0])
+                seq2 = int(row[1])
                 min_kmers = int(row[2])
                 similarity = 0.0
                 Q_prev = 0
 
-                for Q_val, idx in indeces.items():
+                for idx in indeces_values:
+                    Q_val = inv_indeces[idx]
                     Q_curr = int(row[idx])
                     sim = ((Q_curr - Q_prev) * (Q_val / self.kSize)) / min_kmers
-                    similarity += sim
+                    sim = abs(sim)
+                    #print(f"TSV: sim({seq1},{seq2}) = (({Q_curr} - {Q_prev}) * ({Q_val} / {self.kSize})) / {min_kmers} = {sim}")
+                    similarity += abs(sim)
                     Q_prev = Q_curr
 
                 if similarity < self.cut_off_threshold:
@@ -181,7 +191,9 @@ class kClusters:
 
             for Q_val, idx in indeces.items():
                 Q_curr = row[idx]
-                sim = ( (Q_curr - Q_prev) * (Q_val / self.kSize) ) / min_kmers
+                sim = ((Q_curr - Q_prev) * (Q_val / self.kSize)) / min_kmers
+                sim = abs(sim)
+                print(f"SQLITE: sim({seq1},{seq2}) = (({Q_curr} - {Q_prev}) * ({Q_val} / {self.kSize})) / {min_kmers} = {sim}")
                 similarity += sim
                 Q_prev = Q_curr
 
@@ -229,7 +241,6 @@ class kClusters:
         with open(kCluster_file_name, 'w') as kClusters:
             kClusters.write("kClust_id\tseqs_ids\n")
             for cluster_id, (k, v) in enumerate(self.components.items(), 1):
-                print(v)
                 kClusters.write(f"{cluster_id}\t{','.join(self.ids_to_names(v))}\n")
 
         print(f"Total Number Of Clusters: {cluster_id}", file = sys.stderr)
