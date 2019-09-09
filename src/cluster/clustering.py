@@ -250,16 +250,20 @@ class kClusters:
 @click.option('-m','--min-q', required=False, type=int, default = None, help="minimum virtualQ")
 @click.option('-M','--max-q', required=False, type=int, default = None, help="maximum virtualQ")
 @click.option('-s','--step-q', required=False, type=int, default = None, help="virtualQs range step")
+@click.option('--qs', required=False, type=click.STRING, default = None, help="comma separated virtualQs, ex: '25,30,31'")
 @click.option('-c','--cutoff', required=False, type=click.FloatRange(0, 1, clamp=False), default = 0.0, show_default=True, help="cluster sequences with (similarity > cutoff)")
 @click.option('-d', '--db', required=False, type=click.Path(exists=True), default=None,  help="sqlite database file")
 @click.option('-t', '--tsv', required=False, type=click.Path(exists=True), default=None, help="sqlite database file")
 @click.pass_context
-def main(ctx, min_q, max_q, step_q, db, tsv, cutoff):
+def main(ctx, min_q, max_q, step_q, qs, db, tsv, cutoff):
     """Sequences clustering regarding user-selected virtualQs."""
     scanQs = map(bool, [min_q, max_q, step_q])
 
     if True in scanQs and False in scanQs:
         ctx.obj.ERROR("Please complete the virtualQs range")
+
+    elif len(qs):
+        userQs = list(map(int, qs.split(",")))
 
     elif not(min_q and max_q and step_q):
         ctx.obj.WARNING("processing all virtualQs in the sqlite database")
