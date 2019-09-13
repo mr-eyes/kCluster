@@ -12,6 +12,8 @@ class kClusters:
 
     source = []
     target = []
+    source2 = []
+    target2 = []
     names_map = dict()
     components = defaultdict(set)
 
@@ -81,6 +83,10 @@ class kClusters:
         self.cut_off_threshold = cut_off_threshold
         self.pairwise_file_type = pairwise_file_type
         self.file_name = pairwise_file
+        self.uncovered_seqs = set()
+        self.min_kmers_threshold = 200
+        self.seq_to_clusterid = dict()
+        self.max_cluster_id = 0
 
         if pairwise_file_type == "sqlite":
             self.sqlite_constructor(pairwise_file, userQs)
@@ -167,12 +173,25 @@ class kClusters:
                 if similarity < self.cut_off_threshold:
                     continue
 
-                self.source.append(seq1)
-                self.target.append(seq2)
+                if min_kmers < self.min_kmers_threshold:
+                    self.source2.append(seq1)
+                    self.target2.append(seq2)
 
-            for i in range(1, len(self.names_map) + 1, 1):
-                self.source.append(i)
-                self.target.append(i)
+                elif min_kmers >= self.min_kmers_threshold:
+                    self.source.append(seq1)
+                    self.target.append(seq2)
+
+
+            # # For covering clusters with single sequence
+            uncovered_seqs_1 = set(self.names_map.keys()) - set(self.source).union(set(self.target))
+            for seq in uncovered_seqs_1:
+                self.uncovered_seqs.add(seq)
+
+
+            # OR:
+            # for i in range(1, len(self.names_map) + 1, 1):
+            #     self.source.append(i)
+            #     self.target.append(i)
 
     def sqlite_build_graph(self):
         user_Qs = self.userQs
@@ -200,13 +219,23 @@ class kClusters:
             if similarity < self.cut_off_threshold:
                 continue
 
-            self.source.append(seq1)
-            self.target.append(seq2)
+            if min_kmers < self.min_kmers_threshold:
+                self.source2.append(seq1)
+                self.target2.append(seq2)
 
+            elif min_kmers >= self.min_kmers_threshold:
+                self.source.append(seq1)
+                self.target.append(seq2)
 
-        for i in range(1, len(self.names_map) + 1, 1):
-                self.source.append(i)
-                self.target.append(i)
+        # # For covering clusters with single sequence
+        uncovered_seqs_1 = set(self.names_map.keys()) - set(self.source).union(set(self.target))
+        for seq in uncovered_seqs_1:
+            self.uncovered_seqs.add(seq)
+
+        # OR:
+        # for i in range(1, len(self.names_map) + 1, 1):
+        #     self.source.append(i)
+        #     self.target.append(i)
 
     def clustering(self):
         registers = defaultdict(lambda: None)
@@ -232,6 +261,73 @@ class kClusters:
         for x in registers:
             self.components[find(x)].add(x)
 
+        temp_components = self.components.copy()
+        self.components.clear()
+
+        for cluster_id, (k, v) in enumerate(temp_components.items(), 1):
+            self.components[cluster_id] = set(v)
+            for seq in v:
+                self.seq_to_clusterid[seq] = cluster_id
+
+        temp_components.clear()
+        self.post_clustering()
+
+    def post_clustering(self):
+        registers2 = defaultdict(lambda: None)
+        local_components = defaultdict(set)
+        covered_seqs = set()
+
+        def find(x):
+            l = registers2[x]
+            if l is not None:
+                l = find(l)
+                registers2[x] = l
+                return l
+            return x
+
+        def union(x, y):
+            lx, ly = find(x), find(y)
+            if lx != ly:
+                registers2[lx] = ly
+
+        for i in range(len(self.source2)):
+            union(self.source2.pop(), self.target2.pop())
+
+        for x in registers2:
+            local_components[find(x)].add(x)
+
+        self.components = dict(self.components)
+
+        covered_clusters = set()
+
+        for cluster2_id, (k, v) in enumerate(local_components.items(), 1):
+
+            for seq in v:
+                covered_seqs.add(seq)
+
+            for seq in v:
+                if seq in self.seq_to_clusterid:
+                    cluster_id = self.seq_to_clusterid[seq]
+                    to_be_added = set()
+
+                    for i in v:
+                        if i not in self.seq_to_clusterid:
+                            to_be_added.add(i)
+
+                    self.components[cluster_id] = self.components[cluster_id].union(to_be_added)
+                    covered_clusters.add(k)
+                    continue
+
+        self.uncovered_seqs = self.uncovered_seqs - covered_seqs
+        uncovered_clusters = set(local_components.keys()) - covered_clusters
+        max_id = len(self.components)
+        for i, unc in enumerate(uncovered_clusters, 1):
+            max_id += 1
+            self.components[max_id] = local_components[unc]
+
+        for seq in self.uncovered_seqs:
+            max_id += 1
+            self.components[max_id] = {seq}
 
     def export_kCluster(self):
         kCluster_file_name = f"clusters_{self.cut_off_threshold:.2f}%_"
@@ -250,16 +346,20 @@ class kClusters:
 @click.option('-m','--min-q', required=False, type=int, default = None, help="minimum virtualQ")
 @click.option('-M','--max-q', required=False, type=int, default = None, help="maximum virtualQ")
 @click.option('-s','--step-q', required=False, type=int, default = None, help="virtualQs range step")
+@click.option('--qs', required=False, type=click.STRING, default = None, help="comma separated virtualQs, ex: '25,30,31'")
 @click.option('-c','--cutoff', required=False, type=click.FloatRange(0, 1, clamp=False), default = 0.0, show_default=True, help="cluster sequences with (similarity > cutoff)")
 @click.option('-d', '--db', required=False, type=click.Path(exists=True), default=None,  help="sqlite database file")
 @click.option('-t', '--tsv', required=False, type=click.Path(exists=True), default=None, help="sqlite database file")
 @click.pass_context
-def main(ctx, min_q, max_q, step_q, db, tsv, cutoff):
+def main(ctx, min_q, max_q, step_q, qs, db, tsv, cutoff):
     """Sequences clustering regarding user-selected virtualQs."""
     scanQs = map(bool, [min_q, max_q, step_q])
 
     if True in scanQs and False in scanQs:
         ctx.obj.ERROR("Please complete the virtualQs range")
+
+    elif qs != None:
+        userQs = list(map(int, qs.split(",")))
 
     elif not(min_q and max_q and step_q):
         ctx.obj.WARNING("processing all virtualQs in the sqlite database")
