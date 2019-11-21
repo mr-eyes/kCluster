@@ -22,14 +22,19 @@ from src.pairwise.virtualQs_class import  virtualQs
 @click.option('-o', '--output-prefix', required=False, type=click.STRING, default=None, help="virtualQs output file(s) prefix")
 @click.option('--force','force_write', is_flag=True, help="Overwrite the already proessed virtualQs")
 @click.option('--backup', is_flag=True, help="Back up old virtualQs")
+# @click.option('--simple', 'simple_output', is_flag=True, required=False, help="export in a tsv output [seq1,seq2,shared] no virtualQs")
 @click.option('--export-colors', required=False, type=click.Choice(['json', 'pickle']), default=None, help="export supercolors data [debugging purposes]")
 @click.pass_context
 def main(ctx, min_q, max_q, step_q, index_prefix, output_prefix, force_write, backup, export_colors):
     """
     Generating pairwise  matrices for single/multiple virtualQs.
     """
-    if not os.path.isfile(index_prefix + ".map") and not os.path.isfile(index_prefix + ".mqf"):
-        print(f"Index prefix {index_prefix} Does not exist!", file = sys.stderr)
+
+    for suffix in [".map", ".mqf", ".phmap"]:
+        if os.path.isfile(index_prefix + suffix):
+            break
+    else:
+        print(f"Index prefix {index_prefix} Does not exist!", file=sys.stderr)
         sys.exit(1)
 
     if not output_prefix:
@@ -42,14 +47,14 @@ def main(ctx, min_q, max_q, step_q, index_prefix, output_prefix, force_write, ba
 
     it = VQ.kf.begin()
     prev_kmer = it.getHashedKmer()
-    prev_kmer_color = it.getKmerCount()
+    prev_kmer_color = it.getCount()
 
     ctx.obj.INFO("Processing...")
     # Iterate over all kmers.
     while it != VQ.kf.end():
         it.next()
         curr_kmer = it.getHashedKmer()
-        curr_kmer_color = it.getKmerCount()
+        curr_kmer_color = it.getCount()
 
         # Apply XOR to kmer1 and kmer2 (single time per iteration)
         xor = prev_kmer ^ curr_kmer

@@ -46,13 +46,25 @@ class Dump:
         for row in rows:
             row = list(map(str, row))
             print("\t".join(row))
+
+    def simple_export(self):
+        header = ["seq_1", "seq_2", "shared_kmers"]
+        rows = self.get_table_data("virtualQs")
+        print("\t".join(header))
+        for row in rows:
+            row = map(str, list([row[1], row[2], row[-1]]))
+            print("\t".join(row))
         
 
 @cli.command(name = "dump", help_priority=4)
 @click.option('-d', '--db', required=True, type=click.Path(exists=True), help="sqlite database file")
 @click.option('-t', '--table', required=False, type=click.Choice(['virtualQs', 'meta_info', 'namesmap']), show_default=True, default="virtualQs", help="database table to be exported")
+@click.option('--simple', 'simple_output', is_flag=True, required=False, help="export in a tsv output [seq1,seq2,shared] no virtualQs")
 @click.pass_context
-def main(ctx, db, table):
+def main(ctx, db, table, simple_output):
     """Dump sqlite database table to the stdout in TSV format."""
     tsv = Dump(logger_obj = ctx.obj, sqlite_file = db)
-    tsv.table_export(table)
+    if simple_output:
+        tsv.simple_export()
+    else:
+        tsv.table_export(table)
