@@ -36,7 +36,6 @@ setup(
     author_email='mabuelanin@gmail.com, drtamermansour@gmail.com',
     classifiers=[
         'Development Status :: 3 - Alpha',
-        'Intended Audience :: Users',
         'Topic :: Software Development :: Build Tools',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3.6',
