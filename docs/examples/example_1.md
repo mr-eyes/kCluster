@@ -21,7 +21,7 @@ Now you will have `seq.fa` and `seq.fa.names
 
 seq.fa file contains two identical 100bp sequences with mismatches in position 25,50,75 and 100.
 
-running kCluster with kmer-size=25 demonstrates the effect of the processing with virtualQs 5,10,15,20 because in the normal scenario, there will be zero matches.
+running kSpider with kmer-size=25 demonstrates the effect of the processing with virtualQs 5,10,15,20 because in the normal scenario, there will be zero matches.
 
 ---
 
@@ -29,7 +29,7 @@ running kCluster with kmer-size=25 demonstrates the effect of the processing wit
 
 Indexing the Fasta file
 
-`kCluster index_kmers -f seq.fa -n seq.fa.names -k 25`
+`kSpider index_kmers -f seq.fa -n seq.fa.names -k 25`
 
 That will generate multiple files with the prefix **idx_seq** that stores the index.
 
@@ -41,13 +41,13 @@ Here we performs pairwise distance matrix generation with minimum virtualQ = 5, 
 That means we will calculate the containment of kmers (virtualQs) of sizes [5,10,15,20,25] between each two sequences.
 As we already have just only two sequences, with mismatches at every 25 nucleotides, that means there are *zero* shared kmers between the two sequences but there are shared virtualQs.
 
-`kCluster pairwise --min-q 5 --max-q 25 --step-q 5 -i idx_seq`
+`kSpider pairwise --min-q 5 --max-q 25 --step-q 5 -i idx_seq`
 
 The command will generate sqlite3 database file that stores all the information needed for clustering, including the pairwise similarity matrix.
 
 If we dumped the file using the following command
 
-`kCluster dump --db idx_seq_kCluster.sqlite`
+`kSpider dump --db idx_seq_kCluster.sqlite`
 
 will have this TSV formatted output with the following column names.
 - `ID` : Pairwise distance record serial ID
@@ -81,10 +81,10 @@ In the following command, we will perform clustering on virtualQs [5,10,15,20,25
 
 That means if there's at least 1% of the sequences is shared between both of the sequences they will be grouped together in one cluster.
 
-`kCluster cluster -m 5 -M 25 -s 5 --db idx_seq_kCluster.sqlite --cutoff 0.0`
+`kSpider cluster -m 5 -M 25 -s 5 --db idx_seq_kCluster.sqlite --cutoff 0.0`
 
 The output of the clustering will be just one group contains the sequences `1` and `2`.
 
 **Increasing** the similarity threshold to 90% will split the two sequences into two separate clusters,
 
-`kCluster cluster -m 5 -M 25 -s 5 --db idx_seq_kCluster.sqlite --cutoff 0.9`
+`kSpider cluster -m 5 -M 25 -s 5 --db idx_seq_kCluster.sqlite --cutoff 0.9`

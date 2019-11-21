@@ -1,4 +1,4 @@
-# kCluster
+# kSpider
 
 ## Requirements
 
@@ -7,5 +7,5 @@
 
 ## Installation
 
-`pip install git+https://github.com/mr-eyes/kCluster#egg=kCluster`
+`pip install git+https://github.com/mr-eyes/kSpider#egg=kSpider`
 

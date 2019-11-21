@@ -24,7 +24,7 @@ python ../scripts/add_locus.py -i protein_coding_gencode.v28.transcripts.fa -g g
 rm gencode.v28.annotation.gtf
 
 #6 Download and extract clustering results of protein_coding
-wget -c https://mr-eyes.github.io/kCluster/cdhit_benchmarking/data/cdhit_pc_clstrs.tar.gz
+wget -c https://mr-eyes.github.io/kSpider/cdhit_benchmarking/data/cdhit_pc_clstrs.tar.gz
 tar -xvzf cdhit_pc_clstrs.tar.gz
 
 #7 Add clusterID to fasta files

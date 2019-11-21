@@ -63,7 +63,7 @@ incomplete_mixed = go.Scatter(
 
 data = [complete_mixed, complete_clean, incomplete_mixed, incomplete_clean]
 
-layout = dict(title = '<b>kCluster vs CD-HIT Clustering Assessment</b>',
+layout = dict(title = '<b>kSpider vs CD-HIT Clustering Assessment</b>',
               xaxis = dict(title = '<b>Threshold</b>', type='category'),
               yaxis = dict(title = '<b>Number Of Clusters</b>', type="log"),
               )

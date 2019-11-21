@@ -1,16 +1,21 @@
 """
-    ██╗  ██╗ ██████╗██╗     ██╗   ██╗███████╗████████╗███████╗██████╗ 
-    ██║ ██╔╝██╔════╝██║     ██║   ██║██╔════╝╚══██╔══╝██╔════╝██╔══██╗
-    █████╔╝ ██║     ██║     ██║   ██║███████╗   ██║   █████╗  ██████╔╝
-    ██╔═██╗ ██║     ██║     ██║   ██║╚════██║   ██║   ██╔══╝  ██╔══██╗
-    ██║  ██╗╚██████╗███████╗╚██████╔╝███████║   ██║   ███████╗██║  ██║
-    ╚═╝  ╚═╝ ╚═════╝╚══════╝ ╚═════╝ ╚══════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝                                            
+
+   ▄█   ▄█▄    ▄████████    ▄███████▄  ▄█  ████████▄     ▄████████    ▄████████
+  ███ ▄███▀   ███    ███   ███    ███ ███  ███   ▀███   ███    ███   ███    ███
+  ███▐██▀     ███    █▀    ███    ███ ███▌ ███    ███   ███    █▀    ███    ███
+ ▄█████▀      ███          ███    ███ ███▌ ███    ███  ▄███▄▄▄      ▄███▄▄▄▄██▀
+▀▀█████▄    ▀███████████ ▀█████████▀  ███▌ ███    ███ ▀▀███▀▀▀     ▀▀███▀▀▀▀▀
+  ███▐██▄            ███   ███        ███  ███    ███   ███    █▄  ▀███████████
+  ███ ▀███▄    ▄█    ███   ███        ███  ███   ▄███   ███    ███   ███    ███
+  ███   ▀█▀  ▄████████▀   ▄████▀      █▀   ████████▀    ██████████   ███    ███
+  ▀                                                                  ███    ███
+
 """
 
 from setuptools import setup, find_packages
 import sys
 from os import path
-from src.version import __version__ # pylint: disable=relative-beyond-top-level
+from src.version import __version__  # pylint: disable=relative-beyond-top-level
 
 here = path.abspath(path.dirname(__file__))
 
@@ -21,12 +26,12 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 
 setup(
-    name='kCluster',
+    name='kSpider',
     version=__version__,
-    description = "kCluster sequence clustering software.",
+    description = "kSpider sequence clustering software.",
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/mr-eyes/kCluster',
+    url='https://github.com/mr-eyes/kSpider',
     author='Mohamed Abuelanin (Nile University), Tamer Mansour (UC Davis)',
     author_email='mabuelanin@gmail.com, drtamermansour@gmail.com',
     classifiers=[
@@ -47,11 +52,11 @@ setup(
     include_package_data=True,
     entry_points='''
         [console_scripts]
-        kCluster=src.kCluster:cli
+        kSpider=src.kSpider:cli
     ''',
     project_urls={
-        'Bug Reports': 'https://github.com/mr-eyes/kCluster/issues',
+        'Bug Reports': 'https://github.com/mr-eyes/kSpider/issues',
         'Say Thanks!': 'https://saythanks.io/to/mr-eyes',
-        'Source': 'https://github.com/mr-eyes/kCluster',
+        'Source': 'https://github.com/mr-eyes/kSpider',
         },
 )

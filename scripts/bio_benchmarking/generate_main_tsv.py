@@ -64,20 +64,20 @@ for i in tqdm(range(1, len(all_clusters), 1)):
 
 # Reading KCluster Assessment
 kCluster_types = {}
-with open(kCluster_assessement_file, 'r') as kCluster:
-    next(kCluster)  # skip header
-    for cline in kCluster:
+with open(kCluster_assessement_file, 'r') as kSpider:
+    next(kSpider)  # skip header
+    for cline in kSpider:
         cline = cline.split()
         cluster_id = cline[0]
         cluster_type = cline[1][0] + cline[2][0]
         kCluster_types[cluster_id] = cluster_type
 
 
-# Reading kCluster transcripts to clusterID
+# Reading kSpider transcripts to clusterID
 kCluster_tr_cluster = {}
-with open(kCluster_clusters_file, "r") as kCluster:
-    next(kCluster)
-    for line in kCluster:
+with open(kCluster_clusters_file, "r") as kSpider:
+    next(kSpider)
+    for line in kSpider:
         cline = line.split()
         cluster_id = cline[0]
         for tr in cline[1].split(","):

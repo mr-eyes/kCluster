@@ -172,7 +172,7 @@ with open(clstr_file_path, "r") as clusters:
         clusters_transcripts_ids[cluster_id] = transcripts
 
 res = open(output_file, "w")
-res.write("cluster_id\tQ1\tQ2\tclusters\tcomplete_clusters\tkCluster\tcdhit\n")
+res.write("cluster_id\tQ1\tQ2\tclusters\tcomplete_clusters\tkSpider\tcdhit\n")
 
 
 for cluster_id, transcripts_ids in sorted(clusters_transcripts_ids.iteritems()):

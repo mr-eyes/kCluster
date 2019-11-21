@@ -6,7 +6,7 @@ echo "Run by `whoami` on `date`" > $RUNLOG # write log while running.
 REF_FA=$1  # Reference Fasta
 REF_NAMES=$2 # Reference Names
 
-kCluster=/home/mabuelanin/Desktop/kprocessor/refseq_orthodb/kCluster
+kSpider=/home/mabuelanin/Desktop/kprocessor/refseq_orthodb/kSpider
 OUT=tmp_idx/idx_min_test
 
 mkdir -p tmp_idx
@@ -20,7 +20,7 @@ echo "--------------------" >> ${RUNLOG}
 
 # Building Pairwise
 echo "*** Building pairwise matrix ***"
-pypy ${kCluster}/scripts/generate_relations.py ${OUT}.map ${OUT}.namesMap 1>> ${RUNLOG}
+pypy ${kSpider}/scripts/generate_relations.py ${OUT}.map ${OUT}.namesMap 1>> ${RUNLOG}
 mv idx*tsv tmp_idx
 echo "--------------------" >> ${RUNLOG}
 

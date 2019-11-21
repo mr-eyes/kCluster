@@ -35,7 +35,7 @@ class SpecialHelpOrder(click.Group):
 
 
 @click.group(cls=SpecialHelpOrder)
-@click.version_option(version=__version__, prog_name="kCluster")
+@click.version_option(version=__version__, prog_name="kSpider")
 @click.option('-q','--quiet', default=False, is_flag=True)
 @click.pass_context
 def cli(ctx, quiet):

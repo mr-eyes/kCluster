@@ -39,7 +39,7 @@ for i in range(1, len(all_clusters), 1):
 
 
 """
-Parsing kCluster Clusters file
+Parsing kSpider Clusters file
 """
 kCl_seqs = {}
 with open(kCluster_clusters_file, "r") as kCL:
@@ -90,7 +90,7 @@ s_cols = map(str, cols)
 pr.add_row(["---", "---", "---", "---", "---", "---"])
 pr.add_row(["Total"] + s_cols + [str(total_sum)])
 
-print pr
+print (pr)
 
 
 
@@ -256,4 +256,4 @@ for TYPE in ["CC", "IC", "IM", "CM"]:
 
 result.add_row(["uq_Total"] + uq_total_str + ["----", "----"])
 
-print result
+print (result)

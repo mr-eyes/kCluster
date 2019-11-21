@@ -1,5 +1,5 @@
 # FAQ
 
-## What is kCluster?
+## What is kSpider?
 
 ## What is a virtualQ?

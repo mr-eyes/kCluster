@@ -3,7 +3,7 @@
 ## Options
 
 ```
-Usage: kCluster [OPTIONS] COMMAND [ARGS]...
+Usage: kSpider [OPTIONS] COMMAND [ARGS]...
 
 Options:
   --version    Show the version and exit.
@@ -26,7 +26,7 @@ Commands:
 **index_kmers** subcommand is responsible for indexing FASTA/Q file using default substrings (kmers).
 
 ```
-Usage: kCluster index_kmers [OPTIONS]
+Usage: kSpider index_kmers [OPTIONS]
 
   FASTA file indexing by Kmers
 
@@ -44,7 +44,7 @@ Options:
 You can select specific Open Reading Frame or processing all the ORFs by default. 
 
 ```
-Usage: kCluster index_skipmers [OPTIONS]
+Usage: kSpider index_skipmers [OPTIONS]
 
   FASTA file indexing by Skipmers
 
@@ -66,7 +66,7 @@ The **pairwise** subcommand generates a pairwise distance similarity between eac
 The pairwise matrix contains number of shared virtualQs and number of kmers in the smalled sequence alongside another meta information.
 
 ```
-Usage: kCluster pairwise [OPTIONS]
+Usage: kSpider pairwise [OPTIONS]
 
   Generating pairwise  matrices for single/multiple virtualQs.
 
@@ -87,7 +87,7 @@ Options:
 The **dump** subcommands exports the sqlite database table into a TSV file.
 
 ```
-Usage: kCluster dump [OPTIONS]
+Usage: kSpider dump [OPTIONS]
 
   Dump sqlite database table to the stdout in TSV format.
 
@@ -102,7 +102,7 @@ Options:
 **cluster** subcommand is used for clustering the pairwise matrix generated from the `pairwise` subcommand.
 
 ```
-Usage: kCluster cluster [OPTIONS]
+Usage: kSpider cluster [OPTIONS]
 
   Sequences clustering regarding user-selected virtualQs.
 
@@ -124,7 +124,7 @@ Options:
 This command is recommended to be used before **index_skipmers** with `--orf 1`.
 
 ```
-Usage: kCluster preprocess_cds [OPTIONS]
+Usage: kSpider preprocess_cds [OPTIONS]
 
   Preprocess protein coding transcript to extract CDS
 

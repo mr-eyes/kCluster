@@ -21,10 +21,10 @@
 
 # Biological Benchmarking
 
- - ## Generate relations file between CDHIT & kCluster
+ - ## Generate relations file between CDHIT & kSpider
 	  - **Description:** generate TSV files holding each kCLuster and its corresponding CDHIT
 	- **Run:** `python generate_main_tsv.py <cdhit*clstr> <cdhit_assessement*tsv> <kCluster_clusters*tsv> <kCluster_assessement*tsv> <fasta_file> <output_file>`
 
-- ## Benchmarking CDHIT vs. kCluster
+- ## Benchmarking CDHIT vs. kSpider
 	 - **Description:** print benchmarking result table.
 	- **Run:** `python generate_main_tsv.py <cdhit*clstr> <kCluster_clusters*tsv> <unique_bio_assess*tsv> <total_bio_assess*tsv>`
