@@ -26,7 +26,7 @@ class Index:
                 if len(line.strip().split("\t")) != 2:
                     self.Logger.ERROR(f"invalid names line detected at L{i}: '{line.strip()}'")
 
-    def index(self, mode, params):
+    def index(self, mode, params, noncanonical = False):
         """
         peform indexing with given kSize
         """
@@ -35,6 +35,11 @@ class Index:
 
         try:
             KD = kp.initialize_kmerDecoder(self.fasta_file, 1000, mode, params)
+
+            if noncanonical:
+                self.Logger.INFO("nonCanonical mode..")
+                kp.kmerDecoder_setHashing(KD, 2, False)
+
             # self.idx = kp.kDataFrameMQF(params["k_size"], 28, 3)
             self.idx = kp.kDataFrameMAP(params["k_size"])
             self.ckf = kp.index(KD, self.names_file, self.idx)
@@ -44,7 +49,7 @@ class Index:
             self.Logger.ERROR("Indexing failed")
 
     def write_to_disk(self, output_prefix):
-        '''save index file to disk'''
+        """save index file to disk"""
 
         try:
             self.ckf.save(output_prefix)
@@ -74,9 +79,10 @@ KMERS
 @click.option('-n', '--names', "names_file", required=True, type=click.Path(exists=True), help="Names file")
 @click.option('-k', '--kmer-size', "kSize", callback=validate_kSize, required=True,
               type=click.IntRange(7, 31, clamp=False), help="kmer size")
+@click.option('--noncanonical', is_flag=True)
 @click.option('-o', '--output', "output_prefix", required=False, default=None, help="index output file prefix")
 @click.pass_context
-def kmers(ctx, fasta_file, names_file, kSize, output_prefix):
+def kmers(ctx, fasta_file, names_file, kSize, output_prefix, noncanonical):
     '''FASTA file indexing by Kmers'''
 
     if not output_prefix:
@@ -89,7 +95,7 @@ def kmers(ctx, fasta_file, names_file, kSize, output_prefix):
 
     idx = Index(logger_obj=ctx.obj, fasta_file=fasta_file, names_file=names_file)
     idx.validate_names()
-    idx.index(mode, params)
+    idx.index(mode, params, noncanonical)
     idx.write_to_disk(output_prefix)
 
 
