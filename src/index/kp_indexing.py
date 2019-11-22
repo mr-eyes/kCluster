@@ -34,15 +34,14 @@ class Index:
         self.Logger.INFO(f"Indexing by {mode} with params: {params}")
 
         try:
-            KD = kp.initialize_kmerDecoder(self.fasta_file, 1000, mode, params)
+            # self.idx = kp.kDataFrameMQF(params["k_size"], 28, 3)
+            self.idx = kp.kDataFrameMAP(params["k_size"])
 
             if noncanonical:
                 self.Logger.INFO("nonCanonical mode..")
-                kp.kmerDecoder_setHashing(KD, 2, False)
+                kp.kmerDecoder_setHashing(self.idx, 2, False)
 
-            # self.idx = kp.kDataFrameMQF(params["k_size"], 28, 3)
-            self.idx = kp.kDataFrameMAP(params["k_size"])
-            self.ckf = kp.index(KD, self.names_file, self.idx)
+            self.ckf = kp.index(self.idx, {"mode": 1}, self.fasta_file, 100, self.names_file)
             self.Logger.SUCCESS("Indexing Completed")
         except Exception as e:
             print(e)
