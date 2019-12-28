@@ -307,8 +307,8 @@ class virtualQs:
                 record = record.strip().split(" ")
                 seq_id = record[0]
                 seq_name = record[1]
-
-                self.conn.execute(f"INSERT INTO namesmap (seq_id, seq_name) VALUES ({seq_id}, '{seq_name}')")
+                print(f"seqID: {seq_id}, seqName: {seq_name}")
+                self.conn.execute("INSERT INTO namesmap (seq_id,seq_name) VALUES (?,?)", (seq_id, seq_name))
 
     def sqlite_initiate(self, prefix, force_write=False, backup=False):
         """Initialize the Sqlite database for the processing.
