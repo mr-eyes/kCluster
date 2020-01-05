@@ -1,6 +1,6 @@
 # kSpider
 
-<img src="kSpider.png" alt="kSpider" width="65%" height="65%">
+<!-- <img src="kSpider.png" alt="kSpider" width="65%" height="65%"> -->
 
 ## Clone kSpider
 
@@ -10,6 +10,7 @@ cd kSpider
 ```
 
 ## Clone kProcessor
+
 ```bash
 git clone https://github.com/dib-lab/Kprocessor --branch indexFusionGenes --single-branch kprocessor
 cd kProcessor
