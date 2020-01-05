@@ -185,10 +185,10 @@ class virtualQs:
             set of table Qs values.
         """
 
-        gold_names = {'ID', 'seq1', 'seq2', 'min_kmers'}
+        gold_names = {'ID', 'seq1', 'seq2', 'min_kmers', 'max_kmers'}
         cursor = self.conn.execute('select * from virtualQs')
         cols_names = set(map(lambda x: x[0], cursor.description))
-        if len(gold_names.intersection(cols_names)) != 4:
+        if len(gold_names.intersection(cols_names)) != 5:
             return False
         else:
             return cols_names - gold_names
@@ -238,10 +238,11 @@ class virtualQs:
             seq1 = seq_pair[0]
             seq2 = seq_pair[1]
             min_kmers = min(self.seq_to_kmers_no[seq1], self.seq_to_kmers_no[seq2])
+            max_kmers = max(self.seq_to_kmers_no[seq1], self.seq_to_kmers_no[seq2])
             Qs_cols = ", ".join([f"Q_{Q}" for Q in Qs])
             Qs_vals = ", ".join([f"{Q}" for Q in Qs.values()])
             self.conn.execute(
-                f"INSERT INTO virtualQs (seq1, seq2, min_kmers, {Qs_cols}) VALUES ({seq1}, {seq2}, {min_kmers}, {Qs_vals})")
+                f"INSERT INTO virtualQs (seq1, seq2, min_kmers, max_kmers, {Qs_cols}) VALUES ({seq1}, {seq2}, {min_kmers}, {max_kmers}, {Qs_vals})")
 
     def _sqlite_update(self):
         for seq_pair, Qs in self.edges.items():
@@ -282,6 +283,7 @@ class virtualQs:
          seq1            INT     NOT NULL,
          seq2            INT     NOT NULL,
          min_kmers       INT     NOT NULL,
+         max_kmers       INT     NOT NULL,
          UNIQUE (seq1, seq2));''')
 
         # Create meta information table
@@ -409,7 +411,7 @@ class virtualQs:
 
         if not self.backup and self.overwrite:
             Qs = [Q for Q in self.sqlite_getQs() if Q[0] == "Q"]
-            gold_names = ['ID', 'seq1', 'seq2', 'min_kmers']
+            gold_names = ['ID', 'seq1', 'seq2', 'min_kmers', 'max_kmers']
             preserved_Qs = gold_names + Qs
             Qs_columns = ", ".join(preserved_Qs)
 
