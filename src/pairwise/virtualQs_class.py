@@ -337,7 +337,7 @@ class virtualQs:
         self.force_write = force_write
         self.backup = backup
 
-        database_path = prefix + "_kCluster.sqlite"
+        database_path = prefix + "_kSpider.sqlite"
         db_exist = os.path.isfile(database_path)
         self.conn = sqlite3.connect(database_path)
 
