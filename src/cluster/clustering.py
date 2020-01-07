@@ -14,6 +14,7 @@ class kClusters:
     target = []
     source2 = []
     target2 = []
+    seq_to_kmers = dict()
     names_map = dict()
     components = defaultdict(set)
 
@@ -50,6 +51,7 @@ class kClusters:
         self.sqlite_file = sqlite_file
         self.kSize = self.conn.execute("SELECT value from meta_info WHERE key='kSize'").fetchone()[0]
         self.sqlite_get_namesmap()
+        self.sqlite_get_kmerCount()
 
     def tsv_constructor(self, tsv_file, userQs):
         tsvQs = set()
@@ -89,8 +91,10 @@ class kClusters:
         self.max_cluster_id = 0
 
         if pairwise_file_type == "sqlite":
+            self.Logger.INFO("Loading sqlite DB")
             self.sqlite_constructor(pairwise_file, userQs)
         elif pairwise_file_type == "tsv":
+            self.Logger.INFO("Loading TSV pairwise file")
             self.tsv_constructor(pairwise_file, userQs)
 
     def ids_to_names(self, cluster):
@@ -106,10 +110,10 @@ class kClusters:
             set of table Qs values.
         """
 
-        gold_names = {'ID', 'seq1', 'seq2', 'min_kmers'}
+        gold_names = {'ID', 'seq1', 'seq2'}
         cursor = self.conn.execute('select * from virtualQs')
         cols_names = set(map(lambda x: x[0], cursor.description))
-        if len(gold_names.intersection(cols_names)) != 4:
+        if len(gold_names.intersection(cols_names)) != 3:
             return False
         else:
             return cols_names - gold_names
@@ -119,6 +123,11 @@ class kClusters:
         cursor = cursor.fetchall()
         for row in cursor:
             self.names_map[row[1]] = row[2]
+    
+    def sqlite_get_kmerCount(self):
+        cursor = self.conn.execute(f'SELECT seq, kmers FROM kmer_count ORDER BY seq ASC')
+        for row in cursor:
+            self.seq_to_kmers[int(row[0])] = int(row[1])
 
     def tsv_get_namesmap(self):
         if len(os.path.dirname(self.file_name)) > 1:
@@ -196,15 +205,15 @@ class kClusters:
     def sqlite_build_graph(self):
         user_Qs = self.userQs
         user_Qs.sort(reverse = True)
-        indeces = {i:idx+3 for idx,i in enumerate(user_Qs)}
+        indeces = {i:idx+2 for idx,i in enumerate(user_Qs)}
         query_Qs = ", ".join([f"Q_{Q}" for Q in user_Qs])
 
-        curs = self.conn.execute(f'select seq1, seq2, min_kmers, {query_Qs} from virtualQs')
-
+        curs = self.conn.execute(f'select seq1, seq2, {query_Qs} from virtualQs')
         for row in curs:
             seq1 = row[0]
             seq2 = row[1]
-            min_kmers = row[2]
+            min_kmers = min([self.seq_to_kmers[seq1], self.seq_to_kmers[seq2]])
+            max_kmers = max([self.seq_to_kmers[seq1], self.seq_to_kmers[seq2]])
             similarity = 0.0
             Q_prev = 0
 
@@ -337,9 +346,9 @@ class kClusters:
         with open(kCluster_file_name, 'w') as kClusters:
             kClusters.write("kClust_id\tseqs_ids\n")
             for cluster_id, (k, v) in enumerate(self.components.items(), 1):
-                kClusters.write(f"{cluster_id}\t{','.join(self.ids_to_names(v))}\n")
+                kClusters.write(f"{cluster_id}\t{'|'.join(self.ids_to_names(v))}\n")
 
-        print(f"Total Number Of Clusters: {cluster_id}", file = sys.stderr)
+        self.Logger.INFO(f"Total Number Of Clusters: {cluster_id}")
 
 
 @cli.command(name = "cluster", help_priority=3)
@@ -349,7 +358,7 @@ class kClusters:
 @click.option('--qs', required=False, type=click.STRING, default = None, help="comma separated virtualQs, ex: '25,30,31'")
 @click.option('-c','--cutoff', required=False, type=click.FloatRange(0, 1, clamp=False), default = 0.0, show_default=True, help="cluster sequences with (similarity > cutoff)")
 @click.option('-d', '--db', required=False, type=click.Path(exists=True), default=None,  help="sqlite database file")
-@click.option('-t', '--tsv', required=False, type=click.Path(exists=True), default=None, help="sqlite database file")
+@click.option('-t', '--tsv', required=False, type=click.Path(exists=True), default=None, help="pairwise TSV file")
 @click.pass_context
 def main(ctx, min_q, max_q, step_q, qs, db, tsv, cutoff):
     """Sequences clustering regarding user-selected virtualQs."""
@@ -384,6 +393,9 @@ def main(ctx, min_q, max_q, step_q, qs, db, tsv, cutoff):
 
     # kCl = kClusters(logger_obj= ctx.obj, sqlite_file = db, userQs = userQs, cut_off_threshold = cutoff)
     kCl = kClusters(logger_obj=ctx.obj, pairwise_file_type=file_type, pairwise_file = pairwise_file, userQs = userQs, cut_off_threshold = cutoff)
+    ctx.obj.INFO("Building the main graph...")
     kCl.build_graph()
+    ctx.obj.INFO("Clustering...")
     kCl.clustering()
+    ctx.obj.INFO("Exporting ...")
     kCl.export_kCluster()
