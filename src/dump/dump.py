@@ -58,7 +58,7 @@ class Dump:
 
 @cli.command(name = "dump", help_priority=4)
 @click.option('-d', '--db', required=True, type=click.Path(exists=True), help="sqlite database file")
-@click.option('-t', '--table', required=False, type=click.Choice(['virtualQs', 'meta_info', 'namesmap']), show_default=True, default="virtualQs", help="database table to be exported")
+@click.option('-t', '--table', required=False, type=click.Choice(['virtualQs', 'kmer_count', 'meta_info', 'namesmap']), show_default=True, default="virtualQs", help="database table to be exported")
 @click.option('--simple', 'simple_output', is_flag=True, required=False, help="export in a tsv output [seq1,seq2,shared] no virtualQs")
 @click.pass_context
 def main(ctx, db, table, simple_output):
