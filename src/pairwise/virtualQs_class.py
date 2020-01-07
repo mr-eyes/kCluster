@@ -16,6 +16,7 @@ class virtualQs:
 
     __kSize = None
     overwrite = False
+    kmers_count = dict()
 
     def __init__(self, logger_obj, index_prefix: str):
         """VirtualQs class constructor.
@@ -185,10 +186,10 @@ class virtualQs:
             set of table Qs values.
         """
 
-        gold_names = {'ID', 'seq1', 'seq2', 'min_kmers', 'max_kmers'}
+        gold_names = {'ID', 'seq1', 'seq2'}
         cursor = self.conn.execute('select * from virtualQs')
         cols_names = set(map(lambda x: x[0], cursor.description))
-        if len(gold_names.intersection(cols_names)) != 5:
+        if len(gold_names.intersection(cols_names)) != 3:
             return False
         else:
             return cols_names - gold_names
@@ -233,16 +234,26 @@ class virtualQs:
 
         return result
 
+    def _sqlite_insert_kmer_count(self):
+        
+        for seq_id, kmer_count in self.seq_to_kmers_no.items():
+            self.conn.execute(f"INSERT INTO kmer_count (seq, kmers) VALUES ({seq_id}, {kmer_count})")
+        
+        self.conn.commit()
+
     def _sqlite_insert(self):
+        
+        self._sqlite_insert_kmer_count()
+
         for seq_pair, Qs in self.edges.items():
             seq1 = seq_pair[0]
             seq2 = seq_pair[1]
-            min_kmers = min(self.seq_to_kmers_no[seq1], self.seq_to_kmers_no[seq2])
-            max_kmers = max(self.seq_to_kmers_no[seq1], self.seq_to_kmers_no[seq2])
+            # seq1_kmers = self.seq_to_kmers_no[seq1]
+            # seq2_kmers = self.seq_to_kmers_no[seq2]
             Qs_cols = ", ".join([f"Q_{Q}" for Q in Qs])
             Qs_vals = ", ".join([f"{Q}" for Q in Qs.values()])
             self.conn.execute(
-                f"INSERT INTO virtualQs (seq1, seq2, min_kmers, max_kmers, {Qs_cols}) VALUES ({seq1}, {seq2}, {min_kmers}, {max_kmers}, {Qs_vals})")
+                f"INSERT INTO virtualQs (seq1, seq2, {Qs_cols}) VALUES ({seq1}, {seq2}, {Qs_vals})")
 
     def _sqlite_update(self):
         for seq_pair, Qs in self.edges.items():
@@ -282,8 +293,6 @@ class virtualQs:
         (ID INTEGER PRIMARY KEY AUTOINCREMENT,
          seq1            INT     NOT NULL,
          seq2            INT     NOT NULL,
-         min_kmers       INT     NOT NULL,
-         max_kmers       INT     NOT NULL,
          UNIQUE (seq1, seq2));''')
 
         # Create meta information table
@@ -291,6 +300,12 @@ class virtualQs:
                             (ID INTEGER PRIMARY KEY AUTOINCREMENT,
                             key              TEXT     NOT NULL,
                             value            INT     NOT NULL);''')
+
+        # Create kmers count table
+        self.conn.execute('''CREATE TABLE kmer_count
+                            (ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                            seq              INT     NOT NULL,
+                            kmers            INT     NOT NULL);''')
 
         # Just insert the kSize
         self.conn.execute(f"INSERT OR IGNORE INTO meta_info (key, value) VALUES ('kSize', {self.kSize})")
@@ -411,7 +426,7 @@ class virtualQs:
 
         if not self.backup and self.overwrite:
             Qs = [Q for Q in self.sqlite_getQs() if Q[0] == "Q"]
-            gold_names = ['ID', 'seq1', 'seq2', 'min_kmers', 'max_kmers']
+            gold_names = ['ID', 'seq1', 'seq2']
             preserved_Qs = gold_names + Qs
             Qs_columns = ", ".join(preserved_Qs)
 
