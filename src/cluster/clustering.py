@@ -350,6 +350,15 @@ class kClusters:
 
         self.Logger.INFO(f"Total Number Of Clusters: {cluster_id}")
 
+"""
+TODO:
+New help messages
+
+1. similarity cutoff (sim_cutoff): cluster sequences with (similarity > cutoff) where similarity = shared kmers % to the total kmers in the smallest node.
+2. connectivity cutoff (con_cutoff): cluster sequences with (connectivity > cutoff) where connectivity = shared kmers % to the total kmers in the largest node.
+3. min count cutoff (min_count): the min kmers count of a node to connect two clusters, otherwise the node will be reported twice in both clusters.
+"""
+
 
 @cli.command(name = "cluster", help_priority=3)
 @click.option('-m','--min-q', required=False, type=int, default = None, help="minimum virtualQ")
